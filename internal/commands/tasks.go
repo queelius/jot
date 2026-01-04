@@ -167,23 +167,19 @@ func outputTaskTable(entries []*entry.Entry) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "SLUG\tTITLE\tSTATUS\tPRIORITY\tDUE")
 
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-
 	for _, e := range entries {
+		// Strip date prefix from slug for display (YYYYMMDD-)
+		displaySlug := e.Slug
+		if len(displaySlug) > 9 && displaySlug[8] == '-' {
+			displaySlug = displaySlug[9:]
+		}
+		if len(displaySlug) > 35 {
+			displaySlug = displaySlug[:32] + "..."
+		}
+
 		title := e.Title
 		if len(title) > 40 {
 			title = title[:37] + "..."
-		}
-
-		due := e.Due
-		if due != "" {
-			dueDate, _ := time.Parse("2006-01-02", due)
-			if dueDate.Before(today) {
-				due = "\033[31m" + due + " (overdue)\033[0m" // Red
-			} else if dueDate.Equal(today) {
-				due = "\033[33m" + due + " (today)\033[0m" // Yellow
-			}
 		}
 
 		priority := e.Priority
@@ -195,11 +191,11 @@ func outputTaskTable(entries []*entry.Entry) error {
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			e.Slug,
+			displaySlug,
 			title,
 			e.Status,
 			priority,
-			due,
+			formatRelativeDue(e.Due),
 		)
 	}
 

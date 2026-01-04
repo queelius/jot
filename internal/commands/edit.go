@@ -15,10 +15,14 @@ var editCmd = &cobra.Command{
 	Short: "Edit an entry in your editor",
 	Long: `Open an entry in your editor for modification.
 
+Supports partial slug matching. If the slug doesn't match exactly,
+entries containing the slug will be found.
+
 The entry's modified timestamp is updated when saved.
 
 Examples:
-  jot edit 20240102-api-redesign`,
+  jot edit 20240102-api-redesign
+  jot edit api-redesign              # partial match`,
 	Args: cobra.ExactArgs(1),
 	RunE: runEdit,
 }
@@ -39,9 +43,9 @@ func runEdit(cmd *cobra.Command, args []string) error {
 	}
 
 	slug := args[0]
-	e, err := s.Get(slug)
+	e, err := ResolveSlug(s, slug)
 	if err != nil {
-		return fmt.Errorf("entry not found: %s", slug)
+		return err
 	}
 
 	// Get file info before editing
@@ -83,6 +87,6 @@ func runEdit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("saving entry: %w", err)
 	}
 
-	fmt.Printf("Updated: %s\n", slug)
+	fmt.Printf("Updated: %s\n", e.Slug)
 	return nil
 }

@@ -268,3 +268,22 @@ func (s *Store) AllTags() (map[string]int, error) {
 
 	return tags, nil
 }
+
+// FindByPartialSlug returns entries whose slugs contain the query (case-insensitive).
+func (s *Store) FindByPartialSlug(query string) ([]*entry.Entry, error) {
+	entries, err := s.List(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	query = strings.ToLower(query)
+	var matches []*entry.Entry
+
+	for _, e := range entries {
+		if strings.Contains(strings.ToLower(e.Slug), query) {
+			matches = append(matches, e)
+		}
+	}
+
+	return matches, nil
+}

@@ -14,25 +14,26 @@ var showCmd = &cobra.Command{
 	Short: "Display an entry",
 	Long: `Display the contents of an entry.
 
-By default, renders markdown in the terminal. Use flags for alternative output.
+Supports partial slug matching. If the slug doesn't match exactly,
+entries containing the slug will be found.
+
+By default, renders markdown in the terminal.
 
 Examples:
-  jot show 20240102-api-redesign
-  jot show 20240102-api-redesign --raw
-  jot show 20240102-api-redesign --json`,
+  jot show api-redesign              # partial match OK
+  jot show api-redesign --raw        # raw markdown
+  jot show api-redesign --json       # JSON output`,
 	Args: cobra.ExactArgs(1),
 	RunE: runShow,
 }
 
 var (
 	showRaw  bool
-	showJSON bool
 	showMeta bool
 )
 
 func init() {
 	showCmd.Flags().BoolVar(&showRaw, "raw", false, "output raw markdown (no rendering)")
-	showCmd.Flags().BoolVar(&showJSON, "json", false, "output as JSON")
 	showCmd.Flags().BoolVar(&showMeta, "meta", false, "include sidecar metadata (with --json)")
 
 	rootCmd.AddCommand(showCmd)
@@ -45,12 +46,12 @@ func runShow(cmd *cobra.Command, args []string) error {
 	}
 
 	slug := args[0]
-	e, err := s.Get(slug)
+	e, err := ResolveSlug(s, slug)
 	if err != nil {
-		return fmt.Errorf("entry not found: %s", slug)
+		return err
 	}
 
-	if showJSON {
+	if jsonFlag {
 		return outputEntryJSON(e, showMeta)
 	}
 

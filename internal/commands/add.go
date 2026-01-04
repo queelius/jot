@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/queelius/jot/internal/entry"
+	"github.com/queelius/jot/internal/store"
 )
 
 var addCmd = &cobra.Command{
@@ -21,7 +22,7 @@ Use flags to set type, tags, priority, and due date.
 Examples:
   jot add "Quick thought about API caching"
   jot add "Fix the login bug" --type=task --priority=high
-  jot add "Review PR" --type=task --due=2024-01-15 --tags=work,urgent`,
+  jot add "Review PR" --type=task --due=3d --tags=work,urgent`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAdd,
 }
@@ -38,7 +39,7 @@ func init() {
 	addCmd.Flags().StringVarP(&addType, "type", "t", "", "entry type (idea, task, note, plan, log)")
 	addCmd.Flags().StringVar(&addTags, "tags", "", "comma-separated tags")
 	addCmd.Flags().StringVarP(&addPriority, "priority", "p", "", "priority (low, medium, high, critical)")
-	addCmd.Flags().StringVarP(&addDue, "due", "d", "", "due date (YYYY-MM-DD)")
+	addCmd.Flags().StringVarP(&addDue, "due", "d", "", "due date (YYYY-MM-DD, 3d, 1w, today, tomorrow)")
 	addCmd.Flags().StringVarP(&addStatus, "status", "s", "", "status (open, in_progress, done, blocked)")
 
 	rootCmd.AddCommand(addCmd)
@@ -85,7 +86,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		e.Priority = addPriority
 	}
 	if addDue != "" {
-		e.Due = addDue
+		e.Due = store.ParseRelativeDate(addDue)
 	}
 	if addStatus != "" {
 		e.Status = addStatus

@@ -37,8 +37,7 @@ type Defaults struct {
 // OutputConfig contains output formatting preferences.
 type OutputConfig struct {
 	Format string `yaml:"format,omitempty"` // json, markdown, table
-	Pretty bool   `yaml:"pretty,omitempty"`
-	Color  string `yaml:"color,omitempty"` // auto, always, never
+	Color  string `yaml:"color,omitempty"`  // auto, always, never
 }
 
 // DefaultConfig returns a config with sensible defaults.
@@ -49,8 +48,7 @@ func DefaultConfig() *Config {
 		Editor:     "",
 		DateFormat: "2006-01-02",
 		Output: OutputConfig{
-			Format: "json",
-			Pretty: false,
+			Format: "table",
 			Color:  "auto",
 		},
 	}
@@ -234,8 +232,6 @@ func (c *Config) Set(key, value string) error {
 		c.Defaults.Type = value
 	case "output.format":
 		c.Output.Format = value
-	case "output.pretty":
-		c.Output.Pretty = value == "true"
 	case "output.color":
 		c.Output.Color = value
 	default:
@@ -259,11 +255,6 @@ func (c *Config) Get(key string) (string, error) {
 		return c.Defaults.Type, nil
 	case "output.format":
 		return c.Output.Format, nil
-	case "output.pretty":
-		if c.Output.Pretty {
-			return "true", nil
-		}
-		return "false", nil
 	case "output.color":
 		return c.Output.Color, nil
 	default:

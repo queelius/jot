@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	// Global flags
-	formatFlag string
-	prettyFlag bool
+	// Global output format flags (mutually exclusive)
+	jsonFlag     bool
+	tableFlag    bool
+	markdownFlag bool
 
 	// Cached values
 	cachedRoot   string
@@ -34,8 +35,10 @@ machine-readable output. Intelligence lives in the LLM layer (Claude Code).`,
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&formatFlag, "format", "", "output format: json, table, markdown")
-	rootCmd.PersistentFlags().BoolVar(&prettyFlag, "pretty", false, "pretty-print JSON output")
+	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "output as JSON")
+	rootCmd.PersistentFlags().BoolVar(&tableFlag, "table", false, "output as table")
+	rootCmd.PersistentFlags().BoolVar(&markdownFlag, "markdown", false, "output as markdown")
+	rootCmd.PersistentFlags().BoolVar(&markdownFlag, "md", false, "output as markdown (alias)")
 }
 
 // Execute runs the root command.
@@ -105,32 +108,27 @@ func mustGetStore() *store.Store {
 
 // getOutputFormat returns the output format from flags or config.
 func getOutputFormat() string {
-	if formatFlag != "" {
-		return formatFlag
+	// Check individual flags first
+	if jsonFlag {
+		return "json"
+	}
+	if tableFlag {
+		return "table"
+	}
+	if markdownFlag {
+		return "markdown"
 	}
 
+	// Fall back to config
 	cfg, err := getConfig()
 	if err != nil {
-		return "json"
+		return "table"
 	}
 
 	if cfg.Output.Format != "" {
 		return cfg.Output.Format
 	}
 
-	return "json"
+	return "table"
 }
 
-// shouldPrettyPrint returns whether to pretty-print JSON.
-func shouldPrettyPrint() bool {
-	if prettyFlag {
-		return true
-	}
-
-	cfg, err := getConfig()
-	if err != nil {
-		return false
-	}
-
-	return cfg.Output.Pretty
-}

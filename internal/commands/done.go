@@ -11,10 +11,14 @@ var doneCmd = &cobra.Command{
 	Short: "Mark a task as done",
 	Long: `Mark a task as completed.
 
+Supports partial slug matching. If the slug doesn't match exactly,
+entries containing the slug will be found.
+
 This is a shortcut for: jot status <slug> done
 
 Examples:
-  jot done 20240102-fix-login-bug`,
+  jot done 20240102-fix-login-bug
+  jot done fix-login                 # partial match`,
 	Args: cobra.ExactArgs(1),
 	RunE: runDone,
 }
@@ -30,17 +34,17 @@ func runDone(cmd *cobra.Command, args []string) error {
 	}
 
 	slug := args[0]
-	e, err := s.Get(slug)
+	e, err := ResolveSlug(s, slug)
 	if err != nil {
-		return fmt.Errorf("entry not found: %s", slug)
+		return err
 	}
 
 	if e.Type != "task" {
-		return fmt.Errorf("entry is not a task: %s (type: %s)", slug, e.Type)
+		return fmt.Errorf("entry is not a task: %s (type: %s)", e.Slug, e.Type)
 	}
 
 	if e.Status == "done" {
-		fmt.Printf("Already done: %s\n", slug)
+		fmt.Printf("Already done: %s\n", e.Slug)
 		return nil
 	}
 
@@ -49,6 +53,6 @@ func runDone(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Marked done: %s\n", slug)
+	fmt.Printf("Marked done: %s\n", e.Slug)
 	return nil
 }

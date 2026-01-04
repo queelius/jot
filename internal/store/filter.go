@@ -137,13 +137,15 @@ func ParseDate(s string) (time.Time, error) {
 
 	// Handle relative dates
 	s = strings.TrimSpace(strings.ToLower(s))
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	switch s {
 	case "today":
-		return time.Now().Truncate(24 * time.Hour), nil
+		return today, nil
 	case "yesterday":
-		return time.Now().Add(-24 * time.Hour).Truncate(24 * time.Hour), nil
+		return today.Add(-24 * time.Hour), nil
 	case "tomorrow":
-		return time.Now().Add(24 * time.Hour).Truncate(24 * time.Hour), nil
+		return today.Add(24 * time.Hour), nil
 	}
 
 	for _, format := range formats {
@@ -153,4 +155,40 @@ func ParseDate(s string) (time.Time, error) {
 	}
 
 	return time.Time{}, nil
+}
+
+// ParseRelativeDate converts relative date strings (3d, 1w, today) to YYYY-MM-DD format.
+// If already in date format, returns as-is. Returns empty string on parse failure.
+func ParseRelativeDate(s string) string {
+	if s == "" {
+		return ""
+	}
+
+	s = strings.TrimSpace(s)
+
+	// If already looks like a date, return as-is
+	if len(s) == 10 && s[4] == '-' && s[7] == '-' {
+		return s
+	}
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	lower := strings.ToLower(s)
+
+	// Handle named dates
+	switch lower {
+	case "today":
+		return today.Format("2006-01-02")
+	case "tomorrow":
+		return today.Add(24 * time.Hour).Format("2006-01-02")
+	}
+
+	// Handle relative durations: 3d, 1w, 2w
+	if dur, err := ParseDuration(lower); err == nil && dur > 0 {
+		return today.Add(dur).Format("2006-01-02")
+	}
+
+	// Return as-is if we can't parse (let validation catch bad formats)
+	return s
 }

@@ -14,11 +14,14 @@ var statusCmd = &cobra.Command{
 	Short: "Change entry status",
 	Long: `Change the status of an entry.
 
+Supports partial slug matching. If the slug doesn't match exactly,
+entries containing the slug will be found.
+
 Valid statuses: open, in_progress, done, blocked, archived
 
 Examples:
   jot status 20240102-api-redesign in_progress
-  jot status 20240102-api-redesign blocked`,
+  jot status api-redesign blocked    # partial match`,
 	Args: cobra.ExactArgs(2),
 	RunE: runStatus,
 }
@@ -48,13 +51,13 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid status %q, must be one of: %v", newStatus, entry.ValidStatuses)
 	}
 
-	e, err := s.Get(slug)
+	e, err := ResolveSlug(s, slug)
 	if err != nil {
-		return fmt.Errorf("entry not found: %s", slug)
+		return err
 	}
 
 	if e.Status == newStatus {
-		fmt.Printf("Status unchanged: %s (%s)\n", slug, newStatus)
+		fmt.Printf("Status unchanged: %s (%s)\n", e.Slug, newStatus)
 		return nil
 	}
 
@@ -65,9 +68,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if oldStatus == "" {
-		fmt.Printf("Status set: %s -> %s\n", slug, newStatus)
+		fmt.Printf("Status set: %s -> %s\n", e.Slug, newStatus)
 	} else {
-		fmt.Printf("Status changed: %s -> %s (was: %s)\n", slug, newStatus, oldStatus)
+		fmt.Printf("Status changed: %s -> %s (was: %s)\n", e.Slug, newStatus, oldStatus)
 	}
 	return nil
 }
