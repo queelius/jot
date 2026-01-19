@@ -113,7 +113,7 @@ func filterByDue(entries []*entry.Entry, dueFilter string) []*entry.Entry {
 			continue
 		}
 
-		dueDate, err := time.Parse("2006-01-02", e.Due)
+		dueDate, err := time.ParseInLocation("2006-01-02", e.Due, now.Location())
 		if err != nil {
 			continue
 		}

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -154,7 +155,7 @@ func ParseDate(s string) (time.Time, error) {
 		}
 	}
 
-	return time.Time{}, nil
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", s)
 }
 
 // ParseRelativeDate converts relative date strings (3d, 1w, today) to YYYY-MM-DD format.

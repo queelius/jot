@@ -107,6 +107,10 @@ func runSearch(cmd *cobra.Command, args []string) error {
 }
 
 func highlightMatch(line, query string) string {
+	if query == "" {
+		return line
+	}
+
 	lower := strings.ToLower(line)
 	queryLower := strings.ToLower(query)
 
