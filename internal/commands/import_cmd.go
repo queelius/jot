@@ -26,6 +26,12 @@ Examples:
 	RunE: runImport,
 }
 
+// entryImporter is the interface required for importing entries.
+type entryImporter interface {
+	Create(*entry.Entry) error
+	Exists(string) bool
+}
+
 var (
 	importDryRun bool
 	importSkip   bool
@@ -72,10 +78,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	return importFromArray(s, data)
 }
 
-func importFromExport(s interface {
-	Create(*entry.Entry) error
-	Exists(string) bool
-}, entriesData json.RawMessage) error {
+func importFromExport(s entryImporter, entriesData json.RawMessage) error {
 	var entries []json.RawMessage
 	if err := json.Unmarshal(entriesData, &entries); err != nil {
 		return fmt.Errorf("parsing entries: %w", err)
@@ -84,10 +87,7 @@ func importFromExport(s interface {
 	return importEntries(s, entries)
 }
 
-func importFromArray(s interface {
-	Create(*entry.Entry) error
-	Exists(string) bool
-}, data []byte) error {
+func importFromArray(s entryImporter, data []byte) error {
 	var entries []json.RawMessage
 	if err := json.Unmarshal(data, &entries); err != nil {
 		return fmt.Errorf("parsing entries: %w", err)
@@ -96,10 +96,7 @@ func importFromArray(s interface {
 	return importEntries(s, entries)
 }
 
-func importEntries(s interface {
-	Create(*entry.Entry) error
-	Exists(string) bool
-}, entries []json.RawMessage) error {
+func importEntries(s entryImporter, entries []json.RawMessage) error {
 	var imported, skipped, errors int
 
 	for _, raw := range entries {

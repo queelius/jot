@@ -2,6 +2,7 @@ package entry
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gosimple/slug"
@@ -48,19 +49,11 @@ func PathForSlug(slug string) (string, error) {
 // SidecarPath returns the path for an entry's sidecar metadata file.
 // Example: "entries/2024/01/20240102-api-redesign.md" -> "entries/2024/01/20240102-api-redesign.meta.yaml"
 func SidecarPath(entryPath string) string {
-	ext := ".md"
-	if len(entryPath) > len(ext) && entryPath[len(entryPath)-len(ext):] == ext {
-		return entryPath[:len(entryPath)-len(ext)] + ".meta.yaml"
-	}
-	return entryPath + ".meta.yaml"
+	return strings.TrimSuffix(entryPath, ".md") + ".meta.yaml"
 }
 
 // AssetDir returns the path for an entry's asset directory.
 // Example: "entries/2024/01/20240102-api-redesign.md" -> "entries/2024/01/20240102-api-redesign/"
 func AssetDir(entryPath string) string {
-	ext := ".md"
-	if len(entryPath) > len(ext) && entryPath[len(entryPath)-len(ext):] == ext {
-		return entryPath[:len(entryPath)-len(ext)]
-	}
-	return entryPath
+	return strings.TrimSuffix(entryPath, ".md")
 }

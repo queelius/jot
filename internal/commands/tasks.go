@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -133,26 +134,27 @@ func filterByDue(entries []*entry.Entry, dueFilter string) []*entry.Entry {
 }
 
 func sortTasks(entries []*entry.Entry) {
-	// Sort by priority (high first), then by due date (earliest first)
-	for i := 0; i < len(entries)-1; i++ {
-		for j := i + 1; j < len(entries); j++ {
-			// Compare priorities
-			pi := priorityOrder(entries[i].Priority)
-			pj := priorityOrder(entries[j].Priority)
-
-			if pi < pj {
-				entries[i], entries[j] = entries[j], entries[i]
-			} else if pi == pj {
-				// Same priority, sort by due date
-				di := parseDueDate(entries[i].Due)
-				dj := parseDueDate(entries[j].Due)
-
-				if !di.IsZero() && (dj.IsZero() || di.Before(dj)) {
-					entries[i], entries[j] = entries[j], entries[i]
-				}
-			}
+	// Sort by priority (highest first), then by due date (earliest first)
+	sort.Slice(entries, func(i, j int) bool {
+		pi := priorityOrder(entries[i].Priority)
+		pj := priorityOrder(entries[j].Priority)
+		if pi != pj {
+			return pi > pj
 		}
-	}
+		// Same priority: sort by due date (earliest first, no-due last)
+		di := parseDueDate(entries[i].Due)
+		dj := parseDueDate(entries[j].Due)
+		if di.IsZero() && dj.IsZero() {
+			return false
+		}
+		if di.IsZero() {
+			return false
+		}
+		if dj.IsZero() {
+			return true
+		}
+		return di.Before(dj)
+	})
 }
 
 func parseDueDate(s string) time.Time {
@@ -168,20 +170,8 @@ func outputTaskTable(entries []*entry.Entry) error {
 	fmt.Fprintln(w, "SLUG\tTITLE\tSTATUS\tPRIORITY\tDUE")
 
 	for _, e := range entries {
-		// Strip date prefix from slug for display (YYYYMMDD-)
-		displaySlug := e.Slug
-		if len(displaySlug) > 9 && displaySlug[8] == '-' {
-			displaySlug = displaySlug[9:]
-		}
-		if len(displaySlug) > 35 {
-			displaySlug = displaySlug[:32] + "..."
-		}
-
-		title := e.Title
-		if len(title) > 40 {
-			title = title[:37] + "..."
-		}
-
+		displaySlug := truncateSlug(e.Slug)
+		title := truncateTitle(e.Title)
 		priority := e.Priority
 		switch priority {
 		case "critical":

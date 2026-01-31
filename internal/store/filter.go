@@ -42,36 +42,24 @@ func (f *Filter) Apply(entries []*entry.Entry) []*entry.Entry {
 }
 
 func (f *Filter) matches(e *entry.Entry) bool {
-	// Type filter
 	if f.Type != "" && !strings.EqualFold(e.Type, f.Type) {
 		return false
 	}
-
-	// Tag filter
 	if f.Tag != "" && !e.HasTag(f.Tag) {
 		return false
 	}
-
-	// Status filter
 	if f.Status != "" && !strings.EqualFold(e.Status, f.Status) {
 		return false
 	}
-
-	// Priority filter
 	if f.Priority != "" && !strings.EqualFold(e.Priority, f.Priority) {
 		return false
 	}
-
-	// Since filter
 	if !f.Since.IsZero() && e.Created.Before(f.Since) {
 		return false
 	}
-
-	// Until filter
 	if !f.Until.IsZero() && e.Created.After(f.Until) {
 		return false
 	}
-
 	return true
 }
 
@@ -105,8 +93,7 @@ func ParseDuration(s string) (time.Duration, error) {
 		return time.ParseDuration(s)
 	}
 
-	var num int
-	_, err := parsePositiveInt(numStr, &num)
+	num, err := parsePositiveInt(numStr)
 	if err != nil {
 		return 0, err
 	}
@@ -114,16 +101,15 @@ func ParseDuration(s string) (time.Duration, error) {
 	return time.Duration(num) * multiplier, nil
 }
 
-func parsePositiveInt(s string, result *int) (bool, error) {
+func parsePositiveInt(s string) (int, error) {
 	n := 0
 	for _, c := range s {
 		if c < '0' || c > '9' {
-			return false, nil
+			return 0, fmt.Errorf("invalid number: %s", s)
 		}
 		n = n*10 + int(c-'0')
 	}
-	*result = n
-	return true, nil
+	return n, nil
 }
 
 // ParseDate parses a date string in various formats.

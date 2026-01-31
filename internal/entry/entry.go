@@ -215,7 +215,7 @@ func (e *Entry) ToJSONPretty() ([]byte, error) {
 	return json.MarshalIndent(e, "", "  ")
 }
 
-// ToJSONSummary returns a compact JSON summary (for list output).
+// EntrySummary is a compact representation for list output.
 type EntrySummary struct {
 	Slug     string   `json:"slug"`
 	Title    string   `json:"title"`
@@ -258,15 +258,15 @@ func (e *Entry) Validate() []error {
 		errs = append(errs, fmt.Errorf("title is required"))
 	}
 
-	if e.Type != "" && !contains(ValidTypes, e.Type) {
+	if e.Type != "" && !Contains(ValidTypes, e.Type) {
 		errs = append(errs, fmt.Errorf("invalid type %q, must be one of: %v", e.Type, ValidTypes))
 	}
 
-	if e.Status != "" && !contains(ValidStatuses, e.Status) {
+	if e.Status != "" && !Contains(ValidStatuses, e.Status) {
 		errs = append(errs, fmt.Errorf("invalid status %q, must be one of: %v", e.Status, ValidStatuses))
 	}
 
-	if e.Priority != "" && !contains(ValidPriorities, e.Priority) {
+	if e.Priority != "" && !Contains(ValidPriorities, e.Priority) {
 		errs = append(errs, fmt.Errorf("invalid priority %q, must be one of: %v", e.Priority, ValidPriorities))
 	}
 
@@ -294,7 +294,8 @@ func (e *Entry) HasTag(tag string) bool {
 	return false
 }
 
-func contains(slice []string, item string) bool {
+// Contains reports whether item is in slice.
+func Contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true

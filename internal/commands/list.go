@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -130,35 +131,24 @@ func runList(cmd *cobra.Command, args []string) error {
 }
 
 func sortEntries(entries []*entry.Entry, sortBy string, reverse bool) {
-	less := func(i, j int) bool {
+	// Default is descending (newest first); reverse flag inverts to ascending
+	sort.Slice(entries, func(i, j int) bool {
+		var less bool
 		switch sortBy {
 		case "modified":
-			return entries[i].Modified.Before(entries[j].Modified)
+			less = entries[i].Modified.Before(entries[j].Modified)
 		case "title":
-			return entries[i].Title < entries[j].Title
+			less = entries[i].Title < entries[j].Title
 		case "priority":
-			return priorityOrder(entries[i].Priority) < priorityOrder(entries[j].Priority)
+			less = priorityOrder(entries[i].Priority) < priorityOrder(entries[j].Priority)
 		default: // created
-			return entries[i].Created.Before(entries[j].Created)
+			less = entries[i].Created.Before(entries[j].Created)
 		}
-	}
-
-	// Sort in ascending order first
-	for i := 0; i < len(entries)-1; i++ {
-		for j := i + 1; j < len(entries); j++ {
-			if less(j, i) {
-				entries[i], entries[j] = entries[j], entries[i]
-			}
+		if reverse {
+			return less
 		}
-	}
-
-	// Default is descending (newest first), reverse flag inverts this
-	if !reverse {
-		// Reverse to get descending order
-		for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
-			entries[i], entries[j] = entries[j], entries[i]
-		}
-	}
+		return !less
+	})
 }
 
 func priorityOrder(p string) int {
@@ -188,6 +178,25 @@ func outputJSON(entries []*entry.Entry) error {
 	return nil
 }
 
+// truncateSlug strips the date prefix and truncates for table display.
+func truncateSlug(slug string) string {
+	if len(slug) > 9 && slug[8] == '-' {
+		slug = slug[9:]
+	}
+	if len(slug) > 35 {
+		slug = slug[:32] + "..."
+	}
+	return slug
+}
+
+// truncateTitle truncates a title for table display.
+func truncateTitle(title string) string {
+	if len(title) > 40 {
+		return title[:37] + "..."
+	}
+	return title
+}
+
 func outputTable(entries []*entry.Entry) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
@@ -198,19 +207,8 @@ func outputTable(entries []*entry.Entry) error {
 	}
 
 	for _, e := range entries {
-		// Strip date prefix from slug for display (YYYYMMDD-)
-		displaySlug := e.Slug
-		if len(displaySlug) > 9 && displaySlug[8] == '-' {
-			displaySlug = displaySlug[9:]
-		}
-		if len(displaySlug) > 35 {
-			displaySlug = displaySlug[:32] + "..."
-		}
-
-		title := e.Title
-		if len(title) > 40 {
-			title = title[:37] + "..."
-		}
+		displaySlug := truncateSlug(e.Slug)
+		title := truncateTitle(e.Title)
 
 		if listVerbose {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
@@ -247,46 +245,40 @@ func outputMarkdown(entries []*entry.Entry) error {
 }
 
 // searchEntries filters entries by a search query (case-insensitive).
-// Matches against content, title, tags, type, status, priority, and due.
+// Matches against content, title, tags, type, status, priority, due, and slug.
 func searchEntries(entries []*entry.Entry, query string) []*entry.Entry {
 	query = strings.ToLower(query)
 	var result []*entry.Entry
 
 	for _, e := range entries {
-		// Check title
-		if strings.Contains(strings.ToLower(e.Title), query) {
-			result = append(result, e)
-			continue
-		}
-
-		// Check content
-		if strings.Contains(strings.ToLower(e.Content), query) {
-			result = append(result, e)
-			continue
-		}
-
-		// Check tags
-		for _, tag := range e.Tags {
-			if strings.Contains(strings.ToLower(tag), query) {
-				result = append(result, e)
-				break
-			}
-		}
-		if len(result) > 0 && result[len(result)-1] == e {
-			continue
-		}
-
-		// Check type, status, priority, due
-		if strings.Contains(strings.ToLower(e.Type), query) ||
-			strings.Contains(strings.ToLower(e.Status), query) ||
-			strings.Contains(strings.ToLower(e.Priority), query) ||
-			strings.Contains(strings.ToLower(e.Due), query) ||
-			strings.Contains(strings.ToLower(e.Slug), query) {
+		if entryMatchesQuery(e, query) {
 			result = append(result, e)
 		}
 	}
 
 	return result
+}
+
+func entryMatchesQuery(e *entry.Entry, query string) bool {
+	if strings.Contains(strings.ToLower(e.Title), query) {
+		return true
+	}
+	if strings.Contains(strings.ToLower(e.Content), query) {
+		return true
+	}
+	for _, tag := range e.Tags {
+		if strings.Contains(strings.ToLower(tag), query) {
+			return true
+		}
+	}
+	if strings.Contains(strings.ToLower(e.Type), query) ||
+		strings.Contains(strings.ToLower(e.Status), query) ||
+		strings.Contains(strings.ToLower(e.Priority), query) ||
+		strings.Contains(strings.ToLower(e.Due), query) ||
+		strings.Contains(strings.ToLower(e.Slug), query) {
+		return true
+	}
+	return false
 }
 
 // formatRelativeDue formats a due date as a relative string (e.g., "2d", "overdue").

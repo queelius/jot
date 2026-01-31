@@ -39,15 +39,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	slug := args[0]
 	newStatus := strings.ToLower(args[1])
 
-	// Validate status
-	valid := false
-	for _, vs := range entry.ValidStatuses {
-		if vs == newStatus {
-			valid = true
-			break
-		}
-	}
-	if !valid {
+	if !entry.Contains(entry.ValidStatuses, newStatus) {
 		return fmt.Errorf("invalid status %q, must be one of: %v", newStatus, entry.ValidStatuses)
 	}
 

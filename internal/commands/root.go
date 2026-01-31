@@ -2,9 +2,6 @@
 package commands
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/queelius/jot/internal/config"
@@ -96,16 +93,6 @@ func getStore() (*store.Store, error) {
 	return cachedStore, nil
 }
 
-// mustGetStore returns the store or exits with an error.
-func mustGetStore() *store.Store {
-	s, err := getStore()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-	return s
-}
-
 // getOutputFormat returns the output format from flags or config.
 func getOutputFormat() string {
 	// Check individual flags first
@@ -131,4 +118,3 @@ func getOutputFormat() string {
 
 	return "table"
 }
-
