@@ -13,6 +13,9 @@ var lintCmd = &cobra.Command{
 	Short: "Validate entries",
 	Long: `Validate entry frontmatter and structure.
 
+Supports partial slug matching. If the slug doesn't match exactly,
+entries containing the slug will be found.
+
 Checks for:
 - Valid YAML frontmatter
 - Valid field values (types, statuses, priorities)
@@ -21,7 +24,8 @@ Checks for:
 
 Examples:
   jot lint                    # Lint all entries
-  jot lint 20240102-api-redesign  # Lint specific entry`,
+  jot lint 20240102-api-redesign  # Lint specific entry
+  jot lint api-redesign           # Partial match`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runLint,
 }
@@ -47,18 +51,18 @@ func runLint(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		// Lint specific entry
 		slug := args[0]
-		e, err := s.Get(slug)
+		e, err := ResolveSlug(s, slug)
 		if err != nil {
-			return fmt.Errorf("entry not found: %s", slug)
+			return err
 		}
 
 		errs := e.Validate()
 		result := lintResult{
-			Slug:  slug,
+			Slug:  e.Slug,
 			Valid: len(errs) == 0,
 		}
-		for _, e := range errs {
-			result.Errors = append(result.Errors, e.Error())
+		for _, validErr := range errs {
+			result.Errors = append(result.Errors, validErr.Error())
 		}
 		results = append(results, result)
 	} else {

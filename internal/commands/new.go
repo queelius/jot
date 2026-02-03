@@ -116,7 +116,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 	defer os.Remove(tmpFile)
 
 	// Get file info before editing
-	beforeInfo, _ := os.Stat(tmpFile)
+	beforeInfo, err := os.Stat(tmpFile)
+	if err != nil {
+		return fmt.Errorf("checking temp file: %w", err)
+	}
 
 	// Open editor
 	editor := cfg.GetEditor()

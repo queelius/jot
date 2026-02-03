@@ -25,7 +25,7 @@ Filters can be combined. All filters are AND-combined.
 Examples:
   jot list
   jot list --type=task --status=open
-  jot list --tag=api --since=7d
+  jot list --tags=api --since=7d
   jot list --json --limit=10`,
 	Aliases: []string{"ls"},
 	RunE:    runList,
@@ -48,7 +48,7 @@ var (
 
 func init() {
 	listCmd.Flags().StringVarP(&listType, "type", "t", "", "filter by type")
-	listCmd.Flags().StringVar(&listTag, "tag", "", "filter by tag")
+	listCmd.Flags().StringVar(&listTag, "tags", "", "filter by tag")
 	listCmd.Flags().StringVarP(&listStatus, "status", "s", "", "filter by status")
 	listCmd.Flags().StringVarP(&listPriority, "priority", "p", "", "filter by priority")
 	listCmd.Flags().StringVar(&listSince, "since", "", "entries created since (e.g., 7d, 2w, 2024-01-01)")

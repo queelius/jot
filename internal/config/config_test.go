@@ -119,11 +119,11 @@ defaults:
 
 func TestConfig_GetEditor(t *testing.T) {
 	tests := []struct {
-		name       string
-		cfgEditor  string
-		envEditor  string
-		envVisual  string
-		want       string
+		name      string
+		cfgEditor string
+		envEditor string
+		envVisual string
+		want      string
 	}{
 		{"config editor", "nano", "", "", "nano"},
 		{"env EDITOR", "", "emacs", "", "emacs"},

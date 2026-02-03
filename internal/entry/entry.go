@@ -192,11 +192,14 @@ func (e *Entry) ToMarkdown() string {
 		fm[k] = v
 	}
 
-	yamlBytes, _ := yaml.Marshal(fm)
-
-	sb.WriteString("---\n")
-	sb.Write(yamlBytes)
-	sb.WriteString("---\n")
+	yamlBytes, err := yaml.Marshal(fm)
+	if err != nil {
+		sb.WriteString("---\n# error: failed to marshal frontmatter\n---\n")
+	} else {
+		sb.WriteString("---\n")
+		sb.Write(yamlBytes)
+		sb.WriteString("---\n")
+	}
 	if e.Content != "" {
 		sb.WriteString("\n")
 		sb.WriteString(e.Content)

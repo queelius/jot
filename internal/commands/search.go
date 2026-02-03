@@ -26,14 +26,18 @@ Examples:
 }
 
 var (
-	searchType    string
-	searchTag     string
-	searchContext int
+	searchType     string
+	searchTag      string
+	searchStatus   string
+	searchPriority string
+	searchContext  int
 )
 
 func init() {
 	searchCmd.Flags().StringVarP(&searchType, "type", "t", "", "filter by type")
-	searchCmd.Flags().StringVar(&searchTag, "tag", "", "filter by tag")
+	searchCmd.Flags().StringVar(&searchTag, "tags", "", "filter by tag")
+	searchCmd.Flags().StringVarP(&searchStatus, "status", "s", "", "filter by status")
+	searchCmd.Flags().StringVarP(&searchPriority, "priority", "p", "", "filter by priority")
 	searchCmd.Flags().IntVarP(&searchContext, "context", "C", 0, "lines of context around matches")
 
 	rootCmd.AddCommand(searchCmd)
@@ -48,8 +52,10 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	query := args[0]
 
 	filter := &store.Filter{
-		Type: searchType,
-		Tag:  searchTag,
+		Type:     searchType,
+		Tag:      searchTag,
+		Status:   searchStatus,
+		Priority: searchPriority,
 	}
 
 	results, err := s.Search(query, filter)

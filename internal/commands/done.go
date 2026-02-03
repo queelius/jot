@@ -8,8 +8,8 @@ import (
 
 var doneCmd = &cobra.Command{
 	Use:   "done <slug>",
-	Short: "Mark a task as done",
-	Long: `Mark a task as completed.
+	Short: "Mark an entry as done",
+	Long: `Mark an entry as done.
 
 Supports partial slug matching. If the slug doesn't match exactly,
 entries containing the slug will be found.
@@ -37,10 +37,6 @@ func runDone(cmd *cobra.Command, args []string) error {
 	e, err := ResolveSlug(s, slug)
 	if err != nil {
 		return err
-	}
-
-	if e.Type != "task" {
-		return fmt.Errorf("entry is not a task: %s (type: %s)", e.Slug, e.Type)
 	}
 
 	if e.Status == "done" {

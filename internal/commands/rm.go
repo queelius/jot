@@ -32,7 +32,6 @@ var rmYes bool
 
 func init() {
 	rmCmd.Flags().BoolVarP(&rmYes, "yes", "y", false, "skip confirmation")
-	rmCmd.Flags().BoolVarP(&rmYes, "force", "f", false, "skip confirmation (alias for --yes)")
 
 	rootCmd.AddCommand(rmCmd)
 }

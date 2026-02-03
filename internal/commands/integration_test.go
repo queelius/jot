@@ -391,6 +391,136 @@ func TestResolveSlug(t *testing.T) {
 	// Note: Multiple match case requires interactive input, so we skip it
 }
 
+// TestDoneOnNonTaskEntry tests that `done` works on any entry type (not just tasks).
+func TestDoneOnNonTaskEntry(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	t.Run("done on idea", func(t *testing.T) {
+		e := createTestEntry(t, s, "My Idea", "idea", "open", "", "", nil)
+
+		// Should not error - done works on any entry type now
+		e.Status = "done"
+		if err := s.Update(e); err != nil {
+			t.Fatalf("failed to mark idea as done: %v", err)
+		}
+
+		retrieved, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("failed to get entry: %v", err)
+		}
+		if retrieved.Status != "done" {
+			t.Errorf("status = %q, want %q", retrieved.Status, "done")
+		}
+	})
+
+	t.Run("done on note", func(t *testing.T) {
+		e := createTestEntry(t, s, "My Note", "note", "", "", "", nil)
+
+		e.Status = "done"
+		if err := s.Update(e); err != nil {
+			t.Fatalf("failed to mark note as done: %v", err)
+		}
+
+		retrieved, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("failed to get entry: %v", err)
+		}
+		if retrieved.Status != "done" {
+			t.Errorf("status = %q, want %q", retrieved.Status, "done")
+		}
+	})
+
+	t.Run("already done is idempotent", func(t *testing.T) {
+		e := createTestEntry(t, s, "Already Done", "task", "done", "", "", nil)
+
+		// Marking as done again should be fine
+		e.Status = "done"
+		if err := s.Update(e); err != nil {
+			t.Fatalf("failed to update already-done entry: %v", err)
+		}
+	})
+}
+
+// TestSearchWithStatusAndPriorityFilters tests search with new --status and --priority filters.
+// Note: store.Search matches on Title + Content, so we search for text in the title.
+func TestSearchWithStatusAndPriorityFilters(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	// All entries contain "Widget" in the title so search("Widget") matches all three.
+	createTestEntry(t, s, "Widget Open Task", "task", "open", "high", "", nil)
+	createTestEntry(t, s, "Widget Done Task", "task", "done", "low", "", nil)
+	createTestEntry(t, s, "Widget Open Idea", "idea", "open", "medium", "", nil)
+
+	t.Run("search with status filter", func(t *testing.T) {
+		results, err := s.Search("widget", &store.Filter{Status: "open"})
+		if err != nil {
+			t.Fatalf("failed to search: %v", err)
+		}
+		if len(results) != 2 {
+			t.Errorf("got %d results, want 2 (open task + open idea)", len(results))
+		}
+		for _, r := range results {
+			if r.Entry.Status != "open" {
+				t.Errorf("entry %q has status %q, want open", r.Entry.Title, r.Entry.Status)
+			}
+		}
+	})
+
+	t.Run("search with priority filter", func(t *testing.T) {
+		results, err := s.Search("widget", &store.Filter{Priority: "high"})
+		if err != nil {
+			t.Fatalf("failed to search: %v", err)
+		}
+		if len(results) != 1 {
+			t.Errorf("got %d results, want 1 (high priority task)", len(results))
+		}
+		if len(results) > 0 && results[0].Entry.Title != "Widget Open Task" {
+			t.Errorf("title = %q, want %q", results[0].Entry.Title, "Widget Open Task")
+		}
+	})
+
+	t.Run("search with combined status and priority", func(t *testing.T) {
+		results, err := s.Search("widget", &store.Filter{Status: "open", Priority: "medium"})
+		if err != nil {
+			t.Fatalf("failed to search: %v", err)
+		}
+		if len(results) != 1 {
+			t.Errorf("got %d results, want 1 (open medium idea)", len(results))
+		}
+		if len(results) > 0 && results[0].Entry.Title != "Widget Open Idea" {
+			t.Errorf("title = %q, want %q", results[0].Entry.Title, "Widget Open Idea")
+		}
+	})
+}
+
+// TestLintWithPartialSlug tests that lint supports partial slug matching via ResolveSlug.
+func TestLintWithPartialSlug(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	e := createTestEntry(t, s, "Unique Lint Target", "idea", "", "", "", nil)
+
+	t.Run("partial slug resolves", func(t *testing.T) {
+		resolved, err := ResolveSlug(s, "unique-lint")
+		if err != nil {
+			t.Fatalf("ResolveSlug failed: %v", err)
+		}
+		if resolved.Slug != e.Slug {
+			t.Errorf("slug = %q, want %q", resolved.Slug, e.Slug)
+		}
+	})
+
+	t.Run("resolved entry validates", func(t *testing.T) {
+		resolved, err := ResolveSlug(s, "unique-lint")
+		if err != nil {
+			t.Fatalf("ResolveSlug failed: %v", err)
+		}
+		errs := resolved.Validate()
+		if len(errs) != 0 {
+			t.Errorf("expected no validation errors, got %v", errs)
+		}
+	})
+}
+
 // TestOutputJSON tests JSON output formatting.
 func TestOutputJSON(t *testing.T) {
 	entries := []*entry.Entry{

@@ -89,7 +89,8 @@ func outputEntryJSON(e interface{ ToJSONPretty() ([]byte, error) }, includeMeta 
 
 func renderMarkdown(content string) error {
 	// Check if stdout is a terminal
-	if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) == 0 {
+	fileInfo, err := os.Stdout.Stat()
+	if err == nil && (fileInfo.Mode()&os.ModeCharDevice) == 0 {
 		// Not a terminal, output raw
 		fmt.Print(content)
 		return nil
