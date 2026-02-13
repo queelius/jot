@@ -37,8 +37,8 @@ jot new --type=idea --tags=api
 jot list                                   # All entries
 jot list --type=task --status=open         # Open tasks
 jot list --tag=api --since=7d              # Recent API-tagged entries
-jot list --format=json                     # JSON output
-jot list --format=table                    # Table output
+jot list --json                            # JSON output
+jot list --table                           # Table output
 
 # View and edit
 jot show <slug>                            # View entry (rendered markdown)
@@ -52,11 +52,18 @@ jot search "query" --context=3             # With context lines
 jot tags                                   # List all tags
 
 # Tasks
-jot tasks                                  # List open tasks
-jot tasks --priority=high                  # High priority tasks
-jot tasks --due=today                      # Due today or overdue
-jot done <slug>                            # Mark complete
+jot list --type=task --status=open         # List open tasks
+jot list --type=task --priority=high       # High priority tasks
+jot list --type=task --due=today           # Due today or overdue
+jot status <slug> done                     # Mark complete
 jot status <slug> in_progress              # Change status
+
+# Lifecycle
+jot stale                                  # Find entries not touched in 90 days
+jot stale --days 30 --type=idea            # Stale ideas (30+ days)
+jot archive --stale --confirm              # Archive stale entries
+jot archive --status done --confirm        # Archive all done entries
+jot purge --all --force                    # Permanently delete archived entries
 
 # Maintenance
 jot lint                                   # Validate all entries
@@ -124,22 +131,22 @@ Or write directly to ` + "`entries/YYYY/MM/YYYYMMDD-slug.md`" + ` with proper fr
 
 ## Output Formats
 
-- ` + "`--format=json`" + ` — JSON Lines (default, one object per line)
-- ` + "`--format=table`" + ` — ASCII table
-- ` + "`--format=markdown`" + ` — Markdown list
-- ` + "`--pretty`" + ` — Pretty-print JSON
+- ` + "`--json`" + ` — JSON (one object per entry)
+- ` + "`--table`" + ` — ASCII table (default)
+- ` + "`--markdown`" + ` or ` + "`--md`" + ` — Markdown list
 
 ## Notes for LLM Usage
 
-- All commands support ` + "`--format=json`" + ` for structured output
+- All commands support ` + "`--json`" + ` for structured output
 - Entry slugs are stable identifiers: ` + "`YYYYMMDD-title-slug`" + `
-- Use ` + "`jot which --format=json`" + ` to determine active journal
+- Use ` + "`jot which --json`" + ` to determine active journal
 - When modifying entries directly, run ` + "`jot lint`" + ` to validate
 `
 
 var claudeCmd = &cobra.Command{
-	Use:   "claude",
-	Short: "Claude Code integration commands",
+	Use:     "claude",
+	Short:   "Claude Code integration",
+	GroupID: "admin",
 	Long:  `Commands for integrating jot with Claude Code.`,
 }
 

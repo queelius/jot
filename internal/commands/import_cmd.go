@@ -13,8 +13,9 @@ import (
 )
 
 var importCmd = &cobra.Command{
-	Use:   "import <file>",
-	Short: "Import entries",
+	Use:     "import <file>",
+	Short:   "Import entries",
+	GroupID: "data",
 	Long: `Import entries from a JSON export file.
 
 The file should be in the format produced by 'jot export'.

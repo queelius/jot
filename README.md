@@ -42,8 +42,8 @@ jot list --format=table            # Table view
 jot show 20240102-api-redesign
 
 # Task workflow
-jot tasks                          # List open tasks
-jot done 20240102-fix-auth-bug     # Mark complete
+jot list --type=task --status=open # List open tasks
+jot status 20240102-fix-auth-bug done
 jot status 20240102-idea in_progress
 
 # Search
@@ -103,9 +103,10 @@ entries/2024/01/20240102-api-redesign-proposal.md
 | `jot rm` | Remove entry |
 | `jot search` | Full-text search |
 | `jot tags` | List tags |
-| `jot tasks` | List open tasks |
-| `jot done` | Mark task complete |
 | `jot status` | Change entry status |
+| `jot stale` | Find stale entries |
+| `jot archive` | Bulk archive entries |
+| `jot purge` | Delete archived entries |
 | `jot lint` | Validate entries |
 | `jot export` | Export to JSON |
 | `jot import` | Import from JSON |
@@ -155,7 +156,7 @@ The skill is installed to `~/.claude/skills/jot/SKILL.md` (global) or `./.claude
 With jot's structured output, Claude Code can:
 - **Create & manage entries**: `jot add "idea"`, `jot new --type=task`
 - **Search & filter**: `jot search "query"`, `jot list --type=task --status=open`
-- **Task workflow**: `jot tasks`, `jot done <slug>`
+- **Task workflow**: `jot list --type=task`, `jot status <slug> done`
 - **Semantic operations**: Relate entries, find duplicates, decompose complex ideas
 - **Bulk operations**: Read JSON output, modify entries programmatically
 
@@ -165,7 +166,7 @@ With jot's structured output, Claude Code can:
 You: "What are my open tasks related to the API?"
 
 Claude Code:
-1. jot tasks --format=json
+1. jot list --type=task --status=open --json
 2. jot search "API" --format=json
 3. Correlates and summarizes results
 ```

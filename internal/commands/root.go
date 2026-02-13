@@ -32,6 +32,15 @@ machine-readable output. Intelligence lives in the LLM layer (Claude Code).`,
 }
 
 func init() {
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "create", Title: "Create:"},
+		&cobra.Group{ID: "query", Title: "View and Query:"},
+		&cobra.Group{ID: "modify", Title: "Modify:"},
+		&cobra.Group{ID: "lifecycle", Title: "Lifecycle:"},
+		&cobra.Group{ID: "data", Title: "Data:"},
+		&cobra.Group{ID: "admin", Title: "Admin:"},
+	)
+
 	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "output as JSON")
 	rootCmd.PersistentFlags().BoolVar(&tableFlag, "table", false, "output as table")
 	rootCmd.PersistentFlags().BoolVar(&markdownFlag, "markdown", false, "output as markdown")

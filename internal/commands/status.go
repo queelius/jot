@@ -10,8 +10,9 @@ import (
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status <slug> <status>",
-	Short: "Change entry status",
+	Use:     "status <slug> <status>",
+	Short:   "Change entry status",
+	GroupID: "modify",
 	Long: `Change the status of an entry.
 
 Supports partial slug matching. If the slug doesn't match exactly,

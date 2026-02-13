@@ -14,8 +14,9 @@ import (
 )
 
 var newCmd = &cobra.Command{
-	Use:   "new",
-	Short: "Create a new entry in your editor",
+	Use:     "new",
+	Short:   "Create a new entry in your editor",
+	GroupID: "create",
 	Long: `Create a new entry by opening your editor with a template.
 
 The entry is saved when you close the editor.

@@ -391,56 +391,6 @@ func TestResolveSlug(t *testing.T) {
 	// Note: Multiple match case requires interactive input, so we skip it
 }
 
-// TestDoneOnNonTaskEntry tests that `done` works on any entry type (not just tasks).
-func TestDoneOnNonTaskEntry(t *testing.T) {
-	s, _ := setupTestJournal(t)
-
-	t.Run("done on idea", func(t *testing.T) {
-		e := createTestEntry(t, s, "My Idea", "idea", "open", "", "", nil)
-
-		// Should not error - done works on any entry type now
-		e.Status = "done"
-		if err := s.Update(e); err != nil {
-			t.Fatalf("failed to mark idea as done: %v", err)
-		}
-
-		retrieved, err := s.Get(e.Slug)
-		if err != nil {
-			t.Fatalf("failed to get entry: %v", err)
-		}
-		if retrieved.Status != "done" {
-			t.Errorf("status = %q, want %q", retrieved.Status, "done")
-		}
-	})
-
-	t.Run("done on note", func(t *testing.T) {
-		e := createTestEntry(t, s, "My Note", "note", "", "", "", nil)
-
-		e.Status = "done"
-		if err := s.Update(e); err != nil {
-			t.Fatalf("failed to mark note as done: %v", err)
-		}
-
-		retrieved, err := s.Get(e.Slug)
-		if err != nil {
-			t.Fatalf("failed to get entry: %v", err)
-		}
-		if retrieved.Status != "done" {
-			t.Errorf("status = %q, want %q", retrieved.Status, "done")
-		}
-	})
-
-	t.Run("already done is idempotent", func(t *testing.T) {
-		e := createTestEntry(t, s, "Already Done", "task", "done", "", "", nil)
-
-		// Marking as done again should be fine
-		e.Status = "done"
-		if err := s.Update(e); err != nil {
-			t.Fatalf("failed to update already-done entry: %v", err)
-		}
-	})
-}
-
 // TestSearchWithStatusAndPriorityFilters tests search with new --status and --priority filters.
 // Note: store.Search matches on Title + Content, so we search for text in the title.
 func TestSearchWithStatusAndPriorityFilters(t *testing.T) {
@@ -688,49 +638,6 @@ func TestOutputTable(t *testing.T) {
 	}
 }
 
-// TestOutputTaskTable tests task table output formatting.
-func TestOutputTaskTable(t *testing.T) {
-	now := time.Now()
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-
-	entries := []*entry.Entry{
-		{
-			Slug:     "20240115-urgent-task",
-			Title:    "Urgent Task",
-			Type:     "task",
-			Status:   "open",
-			Priority: "critical",
-			Due:      today.Format("2006-01-02"),
-		},
-		{
-			Slug:     "20240115-normal-task",
-			Title:    "Normal Task",
-			Type:     "task",
-			Status:   "in_progress",
-			Priority: "medium",
-		},
-	}
-
-	output := captureOutput(func() {
-		outputTaskTable(entries)
-	})
-
-	// Should contain headers
-	if !strings.Contains(output, "SLUG") || !strings.Contains(output, "STATUS") || !strings.Contains(output, "PRIORITY") {
-		t.Errorf("output missing expected headers: %s", output)
-	}
-
-	// Should contain task data
-	if !strings.Contains(output, "urgent-task") {
-		t.Errorf("output missing task slug: %s", output)
-	}
-
-	// Critical priority should have ANSI codes (colored)
-	if !strings.Contains(output, "\033[31m") {
-		t.Errorf("critical priority should be colored red: %s", output)
-	}
-}
-
 // TestOutputTagsJSON tests JSON output for tags.
 func TestOutputTagsJSON(t *testing.T) {
 	tags := map[string]int{
@@ -857,4 +764,44 @@ func TestFilterByDueIntegration(t *testing.T) {
 			t.Error("week filter should not include entries due in 10 days")
 		}
 	})
+}
+
+// TestCommandGroups verifies that all subcommands have valid GroupIDs
+// matching one of the registered groups. Catches typos and missing assignments.
+func TestCommandGroups(t *testing.T) {
+	// Collect registered group IDs
+	validGroups := make(map[string]bool)
+	for _, g := range rootCmd.Groups() {
+		validGroups[g.ID] = true
+	}
+
+	if len(validGroups) == 0 {
+		t.Fatal("no command groups registered on rootCmd")
+	}
+
+	// Every subcommand must have a GroupID that is either empty (ungrouped) or valid
+	ungroupedAllowed := map[string]bool{"completion": true, "help": true}
+	for _, cmd := range rootCmd.Commands() {
+		name := cmd.Name()
+		groupID := cmd.GroupID
+
+		if groupID == "" {
+			if !ungroupedAllowed[name] {
+				t.Errorf("command %q has no GroupID assigned", name)
+			}
+			continue
+		}
+
+		if !validGroups[groupID] {
+			t.Errorf("command %q has GroupID %q which is not a registered group", name, groupID)
+		}
+	}
+
+	// Verify expected groups exist
+	expectedGroups := []string{"create", "query", "modify", "lifecycle", "data", "admin"}
+	for _, id := range expectedGroups {
+		if !validGroups[id] {
+			t.Errorf("expected group %q not registered", id)
+		}
+	}
 }

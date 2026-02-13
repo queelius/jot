@@ -11,8 +11,9 @@ import (
 )
 
 var searchCmd = &cobra.Command{
-	Use:   "search <query>",
-	Short: "Search entry content",
+	Use:     "search <query>",
+	Short:   "Search entry content",
+	GroupID: "query",
 	Long: `Search for entries containing the specified text.
 
 Searches both titles and content. Case-insensitive.

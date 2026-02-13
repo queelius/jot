@@ -11,8 +11,9 @@ import (
 )
 
 var tagsCmd = &cobra.Command{
-	Use:   "tags [tag]",
-	Short: "List tags or entries with a tag",
+	Use:     "tags [tag]",
+	Short:   "List all tags (or entries with a tag)",
+	GroupID: "query",
 	Long: `List all tags with counts, or list entries with a specific tag.
 
 Examples:

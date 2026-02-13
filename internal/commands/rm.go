@@ -10,8 +10,9 @@ import (
 )
 
 var rmCmd = &cobra.Command{
-	Use:   "rm <slug>",
-	Short: "Remove an entry",
+	Use:     "rm <slug>",
+	Short:   "Remove an entry",
+	GroupID: "lifecycle",
 	Long: `Remove an entry, its sidecar metadata, and asset directory.
 
 Supports partial slug matching. If the slug doesn't match exactly,

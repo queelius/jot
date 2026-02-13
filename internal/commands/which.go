@@ -10,8 +10,9 @@ import (
 )
 
 var whichCmd = &cobra.Command{
-	Use:   "which",
-	Short: "Show which journal is active",
+	Use:     "which",
+	Short:   "Show which journal is active",
+	GroupID: "admin",
 	Long: `Show which journal is currently active.
 
 Displays the journal root path and whether it's a local or global journal.

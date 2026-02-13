@@ -10,8 +10,9 @@ import (
 )
 
 var showCmd = &cobra.Command{
-	Use:   "show <slug>",
-	Short: "Display an entry",
+	Use:     "show <slug>",
+	Short:   "Display an entry",
+	GroupID: "query",
 	Long: `Display the contents of an entry.
 
 Supports partial slug matching. If the slug doesn't match exactly,

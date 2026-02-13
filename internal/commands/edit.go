@@ -11,8 +11,9 @@ import (
 )
 
 var editCmd = &cobra.Command{
-	Use:   "edit <slug>",
-	Short: "Edit an entry in your editor",
+	Use:     "edit <slug>",
+	Short:   "Edit an entry in your editor",
+	GroupID: "modify",
 	Long: `Open an entry in your editor for modification.
 
 Supports partial slug matching. If the slug doesn't match exactly,

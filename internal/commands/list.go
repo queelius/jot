@@ -16,8 +16,9 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List entries",
+	Use:     "list",
+	Short:   "List and filter entries",
+	GroupID: "query",
 	Long: `List entries with optional filtering.
 
 Filters can be combined. All filters are AND-combined.
@@ -281,18 +282,66 @@ func entryMatchesQuery(e *entry.Entry, query string) bool {
 	return false
 }
 
+// filterByDue filters entries by due date (today, week, overdue, or a specific date).
+func filterByDue(entries []*entry.Entry, dueFilter string) []*entry.Entry {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	var deadline time.Time
+
+	switch strings.ToLower(dueFilter) {
+	case "today":
+		deadline = today.Add(24 * time.Hour)
+	case "week":
+		deadline = today.Add(7 * 24 * time.Hour)
+	case "overdue":
+		deadline = today
+	default:
+		// Try to parse as date
+		if t, err := store.ParseDate(dueFilter); err == nil {
+			deadline = t.Add(24 * time.Hour)
+		} else {
+			return entries
+		}
+	}
+
+	var result []*entry.Entry
+	for _, e := range entries {
+		if e.Due == "" {
+			continue
+		}
+
+		dueDate, err := time.ParseInLocation("2006-01-02", e.Due, now.Location())
+		if err != nil {
+			continue
+		}
+
+		if dueFilter == "overdue" {
+			if dueDate.Before(today) {
+				result = append(result, e)
+			}
+		} else {
+			if dueDate.Before(deadline) {
+				result = append(result, e)
+			}
+		}
+	}
+
+	return result
+}
+
 // formatRelativeDue formats a due date as a relative string (e.g., "2d", "overdue").
 func formatRelativeDue(due string) string {
 	if due == "" {
 		return ""
 	}
 
-	dueDate, err := time.Parse("2006-01-02", due)
+	now := time.Now()
+	dueDate, err := time.ParseInLocation("2006-01-02", due, now.Location())
 	if err != nil {
 		return due
 	}
 
-	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	dueDay := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, now.Location())
 

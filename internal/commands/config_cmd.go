@@ -10,8 +10,9 @@ import (
 )
 
 var configCmd = &cobra.Command{
-	Use:   "config [key] [value]",
-	Short: "View or modify configuration",
+	Use:     "config [key] [value]",
+	Short:   "View or modify configuration",
+	GroupID: "admin",
 	Long: `View or modify journal configuration.
 
 With no arguments, shows the full configuration.

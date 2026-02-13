@@ -14,8 +14,9 @@ import (
 )
 
 var exportCmd = &cobra.Command{
-	Use:   "export",
-	Short: "Export entries",
+	Use:     "export",
+	Short:   "Export entries",
+	GroupID: "data",
 	Long: `Export entries to JSON or markdown format.
 
 Supports filtering like the list command.

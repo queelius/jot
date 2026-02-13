@@ -12,8 +12,9 @@ import (
 )
 
 var addCmd = &cobra.Command{
-	Use:   "add <content>",
-	Short: "Quick capture a new entry",
+	Use:     "add <content>",
+	Short:   "Quick capture a new entry",
+	GroupID: "create",
 	Long: `Quickly capture a new entry with a one-liner.
 
 The first argument becomes the entry content and title.

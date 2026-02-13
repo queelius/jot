@@ -9,8 +9,9 @@ import (
 )
 
 var lintCmd = &cobra.Command{
-	Use:   "lint [slug]",
-	Short: "Validate entries",
+	Use:     "lint [slug]",
+	Short:   "Validate entries",
+	GroupID: "admin",
 	Long: `Validate entry frontmatter and structure.
 
 Supports partial slug matching. If the slug doesn't match exactly,

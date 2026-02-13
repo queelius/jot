@@ -334,15 +334,15 @@ jot tags api                      # Same as: jot list --tag=api
 
 ```bash
 # List open tasks
-jot tasks
-jot tasks --status=blocked
-jot tasks --priority=high
-jot tasks --due=today             # Due today or overdue
-jot tasks --due=week              # Due within 7 days
+jot list --type=task --status=open
+jot list --type=task --status=blocked
+jot list --type=task --priority=high
+jot list --type=task --due=today  # Due today or overdue
+jot list --type=task --due=week   # Due within 7 days
 
 # Mark task complete
-jot done <slug>
-jot done 20240102-fix-login-bug
+jot status <slug> done
+jot status 20240102-fix-login-bug done
 
 # Change status
 jot status <slug> <status>
@@ -578,8 +578,8 @@ jot search "query"                        # Full-text search
 jot tags                                  # List all tags
 
 # Tasks
-jot tasks                                 # List open tasks
-jot done <slug>                           # Mark complete
+jot list --type=task --status=open        # List open tasks
+jot status <slug> done                    # Mark complete
 jot status <slug> in_progress             # Change status
 
 # Maintenance
@@ -709,10 +709,10 @@ $ jot new --type=task --tags=api,urgent
 Created: 20240102-implement-rate-limiting
 
 # List recent tasks
-$ jot tasks --since=7d
-SLUG                              TITLE                      STATUS    PRIORITY  DUE
-20240102-implement-rate-limiting  Implement rate limiting    open      high      2024-01-10
-20240101-fix-auth-bug             Fix authentication bug     open      critical  2024-01-03
+$ jot list --type=task --since=7d -v
+SLUG                              TITLE                      TYPE  STATUS    PRIORITY  DUE         CREATED
+20240102-implement-rate-limiting  Implement rate limiting    task  open      high      2024-01-10  2024-01-02
+20240101-fix-auth-bug             Fix authentication bug     task  open      critical  2024-01-03  2024-01-01
 
 # Search for related content
 $ jot search "authentication"
@@ -723,8 +723,8 @@ $ jot search "authentication"
   ...noted issues with **authentication** token expiry...
 
 # Mark task done
-$ jot done 20240101-fix-auth-bug
-Marked done: 20240101-fix-auth-bug
+$ jot status 20240101-fix-auth-bug done
+Status changed: 20240101-fix-auth-bug → done
 
 # Export for backup
 $ jot export > ~/backup/ideas-20240102.json

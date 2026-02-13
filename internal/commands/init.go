@@ -11,8 +11,9 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init [directory]",
-	Short: "Initialize a new jot journal",
+	Use:     "init [directory]",
+	Short:   "Initialize a new jot journal",
+	GroupID: "admin",
 	Long: `Initialize a new jot journal in the specified directory.
 If no directory is specified, the current directory is used.
 
