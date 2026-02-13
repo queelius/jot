@@ -1,8 +1,16 @@
 # jot
 
-A CLI-first, plaintext-native toolkit for capturing and organizing ideas, plans, tasks, and notes.
+A plaintext idea toolkit for the LLM era.
 
-**Designed for the LLM era**: simple primitives, predictable structure, machine-readable output. Intelligence lives in the LLM layer (Claude Code).
+Most note-taking tools put intelligence in the app — smart editors, AI assistants baked into the UI, proprietary sync. jot does the opposite: **keep the data dumb, let the LLM be smart.**
+
+Entries are markdown files with YAML frontmatter. That's it. No database, no lock-in, no magic. Claude Code (or any LLM) can read, write, search, and reason over your journal using the CLI — because the data format is trivially machine-readable, and the CLI produces structured JSON.
+
+```bash
+jot add "Consider GraphQL for API v2"
+jot add "Fix auth bug" --type=task --priority=high --due=2024-01-15
+jot list --type=task --status=open --json
+```
 
 ## Installation
 
@@ -14,8 +22,7 @@ Or build from source:
 
 ```bash
 git clone https://github.com/queelius/jot.git
-cd jot
-go build -o jot ./cmd/jot
+cd jot && go build -o jot ./cmd/jot
 ```
 
 ## Quick Start
@@ -26,50 +33,38 @@ jot init ~/ideas
 
 # Quick capture
 jot add "Consider GraphQL for API v2"
+jot add "Fix auth bug" --type=task --priority=high
 
-# Create a task
-jot add "Fix auth bug" --type=task --priority=high --due=2024-01-15
-
-# Create detailed entry with editor
+# Create a detailed entry in your editor
 jot new --type=idea --tags=api,architecture
 
-# List entries
-jot list                           # All entries
-jot list --type=task --status=open # Open tasks
-jot list --format=table            # Table view
+# List and filter
+jot list                              # Everything
+jot list --type=task --status=open    # Open tasks
+jot list --tags=api --since=7d        # Recent API-tagged entries
 
-# View entry
-jot show 20240102-api-redesign
-
-# Task workflow
-jot list --type=task --status=open # List open tasks
-jot status 20240102-fix-auth-bug done
-jot status 20240102-idea in_progress
-
-# Search
+# View, edit, search
+jot show api-redesign                 # Partial slug match
+jot edit api-redesign
 jot search "authentication"
 
-# Export/backup
-jot export > backup.json
+# Task lifecycle
+jot status fix-auth-bug in_progress
+jot status fix-auth-bug done
+
+# Housekeeping
+jot stale                             # Entries untouched in 90 days
+jot archive --status done --confirm   # Archive completed work
+jot export > backup.json              # Backup
 ```
 
-## Philosophy
+## Entry Format
 
-jot is deliberately "dumb"—it provides:
-- CRUD operations with predictable behavior
-- Structured JSON output for parsing
-- Consistent file layout for direct file access
-- Schema validation for data integrity
+Entries are markdown files with YAML frontmatter, stored in a date-based hierarchy:
 
-Intelligence comes from LLM orchestration (Claude Code):
-- Semantic understanding and relationship discovery
-- Decomposition of complex entries
-- Synthesis and summarization
-- Gap analysis and deduplication
-
-## Data Format
-
-Entries are markdown files with YAML frontmatter:
+```
+~/.jot/entries/2024/01/20240102-api-redesign-proposal.md
+```
 
 ```markdown
 ---
@@ -85,91 +80,91 @@ modified: 2024-01-02T10:30:00Z
 We should consider GraphQL for the v2 API...
 ```
 
-Files are stored in a date-based hierarchy:
-```
-entries/2024/01/20240102-api-redesign-proposal.md
-```
+Types: `idea`, `task`, `note`, `plan`, `log`. Statuses: `open`, `in_progress`, `done`, `blocked`, `archived`. Priorities: `low`, `medium`, `high`, `critical`.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `jot init` | Initialize a new journal |
-| `jot add` | Quick capture entry |
-| `jot new` | Create entry in editor |
-| `jot list` | List entries with filters |
-| `jot show` | Display entry |
-| `jot edit` | Edit entry in editor |
-| `jot rm` | Remove entry |
-| `jot search` | Full-text search |
-| `jot tags` | List tags |
-| `jot status` | Change entry status |
-| `jot stale` | Find stale entries |
-| `jot archive` | Bulk archive entries |
-| `jot purge` | Delete archived entries |
-| `jot lint` | Validate entries |
-| `jot export` | Export to JSON |
-| `jot import` | Import from JSON |
-| `jot config` | View/set configuration |
+```
+Create:
+  add         Quick capture a new entry
+  new         Create a new entry in your editor
+
+View and Query:
+  list        List and filter entries (alias: ls)
+  show        Display an entry
+  search      Search entry content
+  tags        List all tags (or entries with a tag)
+
+Modify:
+  edit        Edit an entry in your editor
+  status      Change entry status
+
+Lifecycle:
+  stale       Find entries that haven't been touched recently
+  archive     Bulk archive entries
+  purge       Permanently delete archived entries
+  rm          Remove an entry
+
+Data:
+  export      Export entries
+  import      Import entries
+
+Admin:
+  init        Initialize a new jot journal
+  config      View or modify configuration
+  which       Show which journal is active
+  lint        Validate entries
+  claude      Claude Code integration
+```
 
 ## Global vs Local Journals
 
-jot automatically resolves which journal to use:
+jot resolves which journal to use by walking up from the current directory:
 
-1. **Local journal**: If `.jot/` exists in the current directory (or any parent), uses that
-2. **Global journal**: Otherwise, falls back to `~/.jot/` (auto-created on first use)
+1. If `.jot/` exists in the cwd or any parent, that's the **local journal**
+2. Otherwise, falls back to `~/.jot/` — the **global journal**
 
 ```bash
-jot which              # Shows which journal is active
+jot which                 # Show which journal is active
 
 cd ~/projects/myapp
-jot init               # Create local journal for this project
-jot add "Project idea" # Goes to ./jot
+jot init                  # Create local journal for this project
+jot add "Project idea"    # Goes to ./entries/...
 
 cd /tmp
-jot add "Random thought"  # Goes to ~/.jot (global)
+jot add "Random thought"  # Goes to ~/.jot/entries/...
 ```
+
+This means project-scoped and global journals coexist naturally.
 
 ## Claude Code Integration
 
-jot is designed to work seamlessly with Claude Code. The `.claude/skills/jot.md` file teaches Claude how to use jot effectively.
-
-### Installing the Skill
-
-jot embeds its Claude Code skill and can install it directly:
+jot ships with an embedded Claude Code skill. Install it and Claude learns to use jot as your persistent journal:
 
 ```bash
-# Install globally (recommended)
-jot claude install
-
-# Install to current project only
-jot claude install --local
-
-# View skill content
-jot claude show
+jot claude install          # Install globally
+jot claude install --local  # Install to current project
+jot claude show             # View skill content
 ```
 
-The skill is installed to `~/.claude/skills/jot/SKILL.md` (global) or `./.claude/skills/jot/SKILL.md` (local).
+Once installed, Claude Code can:
 
-### What Claude Code Can Do
+- **Capture on your behalf**: "jot down that I need to revisit the caching layer"
+- **Query your journal**: "what are my open tasks related to the API?"
+- **Manage lifecycle**: "archive everything that's done, show me what's stale"
+- **Reason over entries**: relate ideas, find duplicates, decompose plans
 
-With jot's structured output, Claude Code can:
-- **Create & manage entries**: `jot add "idea"`, `jot new --type=task`
-- **Search & filter**: `jot search "query"`, `jot list --type=task --status=open`
-- **Task workflow**: `jot list --type=task`, `jot status <slug> done`
-- **Semantic operations**: Relate entries, find duplicates, decompose complex ideas
-- **Bulk operations**: Read JSON output, modify entries programmatically
+The skill file lives at `~/.claude/skills/jot/SKILL.md`.
 
-### Example Workflow
+## Design Philosophy
 
-```
-You: "What are my open tasks related to the API?"
+jot is deliberately simple. It provides CRUD, filtering, and structured output. That's the contract. Intelligence — semantic search, relationship discovery, summarization, gap analysis — comes from the LLM layer, not the tool.
 
-Claude Code:
-1. jot list --type=task --status=open --json
-2. jot search "API" --format=json
-3. Correlates and summarizes results
-```
+This means:
+- **No lock-in**: entries are files, readable by anything
+- **No sync**: use git, Syncthing, rsync, whatever you already use
+- **No AI baked in**: the LLM talks to jot through the CLI, not through an SDK
+- **Composable**: `jot list --json | jq '.[] | select(.priority == "high")'`
 
 ## License
 

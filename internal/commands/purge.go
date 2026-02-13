@@ -35,6 +35,7 @@ Narrowing flags (combine with any mode):
 Examples:
   jot purge --all                          # Preview what would be purged
   jot purge --all --force                  # Purge with interactive confirmation
+  jot purge --all --force --yes            # Purge without interactive prompt
   jot purge --older-than 6m --force        # Purge old archived entries
   jot purge --all --type=note --force      # Purge only archived notes`,
 	RunE: runPurge,
@@ -45,7 +46,8 @@ var (
 	purgeOlderStr string
 	purgeType     string
 	purgeTag      string
-	purgeForce    bool
+	purgeForce bool
+	purgeYes   bool
 )
 
 func init() {
@@ -54,6 +56,7 @@ func init() {
 	purgeCmd.Flags().StringVarP(&purgeType, "type", "t", "", "filter by type")
 	purgeCmd.Flags().StringVar(&purgeTag, "tags", "", "filter by tag")
 	purgeCmd.Flags().BoolVar(&purgeForce, "force", false, "required to actually delete (with interactive confirmation)")
+	purgeCmd.Flags().BoolVarP(&purgeYes, "yes", "y", false, "skip interactive confirmation (use with --force)")
 
 	rootCmd.AddCommand(purgeCmd)
 }
@@ -132,15 +135,17 @@ func runPurge(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Interactive confirmation
-	fmt.Printf("This will PERMANENTLY DELETE %d entries. Type YES to confirm: ", len(candidates))
-	reader := bufio.NewReader(os.Stdin)
-	response, _ := reader.ReadString('\n')
-	response = strings.TrimSpace(response)
+	// Interactive confirmation (skip with --yes)
+	if !purgeYes {
+		fmt.Printf("This will PERMANENTLY DELETE %d entries. Type YES to confirm: ", len(candidates))
+		reader := bufio.NewReader(os.Stdin)
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(response)
 
-	if response != "YES" {
-		fmt.Println("Cancelled.")
-		return nil
+		if response != "YES" {
+			fmt.Println("Cancelled.")
+			return nil
+		}
 	}
 
 	// Execute deletion
