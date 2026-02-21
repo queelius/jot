@@ -77,6 +77,7 @@ func runList(cmd *cobra.Command, args []string) error {
 		Status:   listStatus,
 		Priority: listPriority,
 		Limit:    listLimit,
+		Fuzzy:    getFuzzy(),
 	}
 
 	// Parse since

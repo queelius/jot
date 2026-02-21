@@ -57,6 +57,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		Tag:      searchTag,
 		Status:   searchStatus,
 		Priority: searchPriority,
+		Fuzzy:    getFuzzy(),
 	}
 
 	results, err := s.Search(query, filter)

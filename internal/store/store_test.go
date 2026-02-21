@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/queelius/jot/internal/entry"
+	"github.com/queelius/jot/internal/fuzzy"
 )
 
 func TestStore_CreateAndGet(t *testing.T) {
@@ -326,6 +327,89 @@ func TestStore_AllTags(t *testing.T) {
 	}
 }
 
+func TestStore_TagSummaries(t *testing.T) {
+	root := t.TempDir()
+	s := New(root)
+
+	base := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+
+	entries := []*entry.Entry{
+		{Title: "Task A", Type: "task", Status: "open", Tags: []string{"ctk", "api"}, Created: base, Modified: base},
+		{Title: "Task B", Type: "task", Status: "done", Tags: []string{"ctk"}, Created: base.Add(time.Hour), Modified: base.Add(24 * time.Hour)},
+		{Title: "Idea C", Type: "idea", Status: "open", Tags: []string{"ctk", "api"}, Created: base.Add(2 * time.Hour), Modified: base.Add(48 * time.Hour)},
+		{Title: "Note D", Type: "note", Status: "open", Tags: []string{"misc"}, Created: base.Add(3 * time.Hour), Modified: base.Add(3 * time.Hour)},
+	}
+
+	for _, e := range entries {
+		e.Slug = entry.GenerateSlug(e.Title, e.Created)
+		if err := s.Create(e); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+	}
+
+	summaries, err := s.TagSummaries()
+	if err != nil {
+		t.Fatalf("TagSummaries() error = %v", err)
+	}
+
+	if len(summaries) != 3 {
+		t.Fatalf("TagSummaries() returned %d tags, want 3", len(summaries))
+	}
+
+	// Verify sorted by tag name
+	if summaries[0].Tag != "api" || summaries[1].Tag != "ctk" || summaries[2].Tag != "misc" {
+		t.Errorf("unexpected sort order: %s, %s, %s", summaries[0].Tag, summaries[1].Tag, summaries[2].Tag)
+	}
+
+	// Check "ctk" summary
+	ctk := summaries[1]
+	if ctk.Count != 3 {
+		t.Errorf("ctk count = %d, want 3", ctk.Count)
+	}
+	if ctk.Types["task"] != 2 {
+		t.Errorf("ctk types[task] = %d, want 2", ctk.Types["task"])
+	}
+	if ctk.Types["idea"] != 1 {
+		t.Errorf("ctk types[idea] = %d, want 1", ctk.Types["idea"])
+	}
+	if ctk.Statuses["open"] != 2 {
+		t.Errorf("ctk statuses[open] = %d, want 2", ctk.Statuses["open"])
+	}
+	if ctk.Statuses["done"] != 1 {
+		t.Errorf("ctk statuses[done] = %d, want 1", ctk.Statuses["done"])
+	}
+	// Latest should be the most recent Modified among ctk entries (Idea C at base+48h)
+	expectedLatest := base.Add(48 * time.Hour)
+	if !ctk.Latest.Equal(expectedLatest) {
+		t.Errorf("ctk latest = %v, want %v", ctk.Latest, expectedLatest)
+	}
+
+	// Check "api" summary
+	api := summaries[0]
+	if api.Count != 2 {
+		t.Errorf("api count = %d, want 2", api.Count)
+	}
+
+	// Check "misc" summary
+	misc := summaries[2]
+	if misc.Count != 1 {
+		t.Errorf("misc count = %d, want 1", misc.Count)
+	}
+}
+
+func TestStore_TagSummariesEmpty(t *testing.T) {
+	root := t.TempDir()
+	s := New(root)
+
+	summaries, err := s.TagSummaries()
+	if err != nil {
+		t.Fatalf("TagSummaries() error = %v", err)
+	}
+	if len(summaries) != 0 {
+		t.Errorf("TagSummaries() returned %d tags, want 0", len(summaries))
+	}
+}
+
 func TestFindMatches(t *testing.T) {
 	content := `Line one with API call
 Line two
@@ -371,5 +455,123 @@ func TestStore_Exists(t *testing.T) {
 	// Should exist after creation
 	if !s.Exists(e.Slug) {
 		t.Error("Entry should exist after creation")
+	}
+}
+
+func TestStore_ListFuzzyTag(t *testing.T) {
+	root := t.TempDir()
+	s := New(root)
+
+	base := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+
+	entries := []*entry.Entry{
+		{Title: "Entry A", Type: "note", Tags: []string{"algebraic.mle"}, Created: base, Modified: base},
+		{Title: "Entry B", Type: "note", Tags: []string{"repoindex"}, Created: base.Add(time.Hour), Modified: base.Add(time.Hour)},
+		{Title: "Entry C", Type: "note", Tags: []string{"jot"}, Created: base.Add(2 * time.Hour), Modified: base.Add(2 * time.Hour)},
+	}
+
+	for _, e := range entries {
+		e.Slug = entry.GenerateSlug(e.Title, e.Created)
+		if err := s.Create(e); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+	}
+
+	// Exact match should return 1
+	got, err := s.List(&Filter{Tag: "algebraic.mle"})
+	if err != nil {
+		t.Fatalf("List(exact tag) error = %v", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("List(exact tag) returned %d entries, want 1", len(got))
+	}
+
+	// Fuzzy match: "algebraic-mle" should match "algebraic.mle"
+	got, err = s.List(&Filter{Tag: "algebraic-mle", Fuzzy: true})
+	if err != nil {
+		t.Fatalf("List(fuzzy tag) error = %v", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("List(fuzzy tag 'algebraic-mle') returned %d entries, want 1", len(got))
+	}
+	if len(got) == 1 && got[0].Title != "Entry A" {
+		t.Errorf("List(fuzzy tag) got title %q, want %q", got[0].Title, "Entry A")
+	}
+
+	// Fuzzy no-match: "nonexistent" should match nothing
+	got, err = s.List(&Filter{Tag: "nonexistent", Fuzzy: true})
+	if err != nil {
+		t.Fatalf("List(fuzzy no-match) error = %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("List(fuzzy tag 'nonexistent') returned %d entries, want 0", len(got))
+	}
+}
+
+func TestStore_FuzzyTags(t *testing.T) {
+	root := t.TempDir()
+	s := New(root)
+
+	base := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+
+	entries := []*entry.Entry{
+		{Title: "Entry A", Type: "note", Tags: []string{"algebraic.mle", "math"}, Created: base, Modified: base},
+		{Title: "Entry B", Type: "note", Tags: []string{"repoindex"}, Created: base.Add(time.Hour), Modified: base.Add(time.Hour)},
+		{Title: "Entry C", Type: "note", Tags: []string{"jot"}, Created: base.Add(2 * time.Hour), Modified: base.Add(2 * time.Hour)},
+	}
+
+	for _, e := range entries {
+		e.Slug = entry.GenerateSlug(e.Title, e.Created)
+		if err := s.Create(e); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+	}
+
+	results, err := s.FuzzyTags("algebraic-mle")
+	if err != nil {
+		t.Fatalf("FuzzyTags() error = %v", err)
+	}
+	if len(results) < 1 {
+		t.Fatalf("FuzzyTags('algebraic-mle') returned %d results, want at least 1", len(results))
+	}
+	if results[0].Value != "algebraic.mle" {
+		t.Errorf("FuzzyTags('algebraic-mle') first result = %q, want %q", results[0].Value, "algebraic.mle")
+	}
+
+	// Ensure the result is a proper fuzzy.Result
+	_ = fuzzy.Result(results[0])
+}
+
+func TestStore_FuzzyTagSummaries(t *testing.T) {
+	root := t.TempDir()
+	s := New(root)
+
+	base := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+
+	entries := []*entry.Entry{
+		{Title: "Task A", Type: "task", Status: "open", Tags: []string{"algebraic.mle"}, Created: base, Modified: base},
+		{Title: "Idea B", Type: "idea", Status: "open", Tags: []string{"algebraic.mle"}, Created: base.Add(time.Hour), Modified: base.Add(time.Hour)},
+		{Title: "Note C", Type: "note", Tags: []string{"jot"}, Created: base.Add(2 * time.Hour), Modified: base.Add(2 * time.Hour)},
+	}
+
+	for _, e := range entries {
+		e.Slug = entry.GenerateSlug(e.Title, e.Created)
+		if err := s.Create(e); err != nil {
+			t.Fatalf("Create() error = %v", err)
+		}
+	}
+
+	summaries, err := s.FuzzyTagSummaries("algebraic-mle")
+	if err != nil {
+		t.Fatalf("FuzzyTagSummaries() error = %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("FuzzyTagSummaries('algebraic-mle') returned %d summaries, want 1", len(summaries))
+	}
+	if summaries[0].Tag != "algebraic.mle" {
+		t.Errorf("FuzzyTagSummaries() tag = %q, want %q", summaries[0].Tag, "algebraic.mle")
+	}
+	if summaries[0].Count != 2 {
+		t.Errorf("FuzzyTagSummaries() count = %d, want 2", summaries[0].Count)
 	}
 }

@@ -638,25 +638,39 @@ func TestOutputTable(t *testing.T) {
 	}
 }
 
-// TestOutputTagsJSON tests JSON output for tags.
-func TestOutputTagsJSON(t *testing.T) {
-	tags := map[string]int{
-		"api":      5,
-		"backend":  3,
-		"frontend": 2,
+// TestOutputTagSummariesJSON tests JSON output for tag summaries.
+func TestOutputTagSummariesJSON(t *testing.T) {
+	summaries := []*store.TagSummary{
+		{
+			Tag:      "api",
+			Count:    5,
+			Types:    map[string]int{"task": 3, "idea": 2},
+			Statuses: map[string]int{"open": 3, "done": 2},
+			Latest:   time.Date(2026, 2, 18, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			Tag:      "backend",
+			Count:    3,
+			Types:    map[string]int{"task": 3},
+			Statuses: map[string]int{"open": 2, "done": 1},
+			Latest:   time.Date(2026, 2, 16, 0, 0, 0, 0, time.UTC),
+		},
 	}
 
 	output := captureOutput(func() {
-		outputTagsJSON(tags)
+		outputTagSummariesJSON(summaries)
 	})
 
-	// Should be valid JSON-like output with tag and count
+	// Should be valid JSON-like output with all enriched fields
 	if !strings.Contains(output, `"tag"`) || !strings.Contains(output, `"count"`) {
 		t.Errorf("output missing expected JSON fields: %s", output)
 	}
+	if !strings.Contains(output, `"types"`) || !strings.Contains(output, `"statuses"`) || !strings.Contains(output, `"latest"`) {
+		t.Errorf("output missing enriched fields: %s", output)
+	}
 
 	// Should contain all tags
-	if !strings.Contains(output, "api") || !strings.Contains(output, "backend") || !strings.Contains(output, "frontend") {
+	if !strings.Contains(output, "api") || !strings.Contains(output, "backend") {
 		t.Errorf("output missing tags: %s", output)
 	}
 }

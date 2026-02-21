@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/queelius/jot/internal/entry"
+	"github.com/queelius/jot/internal/fuzzy"
 )
 
 // Store manages entries in a jot journal directory.
@@ -252,6 +253,58 @@ func findMatches(content, query string) []Match {
 	return matches
 }
 
+// TagSummary provides enriched per-tag metadata.
+type TagSummary struct {
+	Tag      string         `json:"tag"`
+	Count    int            `json:"count"`
+	Types    map[string]int `json:"types"`
+	Statuses map[string]int `json:"statuses"`
+	Latest   time.Time      `json:"latest"`
+}
+
+// TagSummaries returns enriched metadata for every tag, sorted by tag name.
+func (s *Store) TagSummaries() ([]*TagSummary, error) {
+	entries, err := s.List(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	byTag := make(map[string]*TagSummary)
+	for _, e := range entries {
+		for _, tag := range e.Tags {
+			ts, ok := byTag[tag]
+			if !ok {
+				ts = &TagSummary{
+					Tag:      tag,
+					Types:    make(map[string]int),
+					Statuses: make(map[string]int),
+				}
+				byTag[tag] = ts
+			}
+			ts.Count++
+			if e.Type != "" {
+				ts.Types[e.Type]++
+			}
+			if e.Status != "" {
+				ts.Statuses[e.Status]++
+			}
+			if e.Modified.After(ts.Latest) {
+				ts.Latest = e.Modified
+			}
+		}
+	}
+
+	result := make([]*TagSummary, 0, len(byTag))
+	for _, ts := range byTag {
+		result = append(result, ts)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Tag < result[j].Tag
+	})
+
+	return result, nil
+}
+
 // AllTags returns all unique tags with their counts.
 func (s *Store) AllTags() (map[string]int, error) {
 	entries, err := s.List(nil)
@@ -286,4 +339,37 @@ func (s *Store) FindByPartialSlug(query string) ([]*entry.Entry, error) {
 	}
 
 	return matches, nil
+}
+
+// FuzzyTags returns tags that fuzzy-match query, sorted by distance.
+func (s *Store) FuzzyTags(query string) ([]fuzzy.Result, error) {
+	tags, err := s.AllTags()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(tags))
+	for name := range tags {
+		names = append(names, name)
+	}
+
+	return fuzzy.RankMatches(query, names), nil
+}
+
+// FuzzyTagSummaries returns enriched summaries for tags that fuzzy-match query.
+func (s *Store) FuzzyTagSummaries(query string) ([]*TagSummary, error) {
+	allSummaries, err := s.TagSummaries()
+	if err != nil {
+		return nil, err
+	}
+
+	maxDist := fuzzy.Threshold(query)
+	var results []*TagSummary
+	for _, ts := range allSummaries {
+		if fuzzy.Match(query, ts.Tag, maxDist) {
+			results = append(results, ts)
+		}
+	}
+
+	return results, nil
 }

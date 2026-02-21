@@ -487,6 +487,98 @@ func TestHighlightMatch(t *testing.T) {
 	}
 }
 
+// Test formatTypes function
+func TestFormatTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		types    map[string]int
+		expected string
+	}{
+		{
+			name:     "multiple types sorted by count desc",
+			types:    map[string]int{"task": 3, "idea": 2, "note": 1},
+			expected: "3 task, 2 idea, 1 note",
+		},
+		{
+			name:     "single type",
+			types:    map[string]int{"note": 5},
+			expected: "5 note",
+		},
+		{
+			name:     "empty",
+			types:    map[string]int{},
+			expected: "",
+		},
+		{
+			name:     "tied counts sorted alphabetically",
+			types:    map[string]int{"note": 2, "idea": 2},
+			expected: "2 idea, 2 note",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := formatTypes(tt.types)
+			if result != tt.expected {
+				t.Errorf("formatTypes(%v) = %q, want %q", tt.types, result, tt.expected)
+			}
+		})
+	}
+}
+
+// Test countOpenDone function
+func TestCountOpenDone(t *testing.T) {
+	tests := []struct {
+		name         string
+		statuses     map[string]int
+		expectedOpen int
+		expectedDone int
+	}{
+		{
+			name:         "mixed statuses",
+			statuses:     map[string]int{"open": 3, "in_progress": 2, "done": 1, "archived": 1},
+			expectedOpen: 5,
+			expectedDone: 1,
+		},
+		{
+			name:         "all done",
+			statuses:     map[string]int{"done": 4},
+			expectedOpen: 0,
+			expectedDone: 4,
+		},
+		{
+			name:         "all open",
+			statuses:     map[string]int{"open": 3},
+			expectedOpen: 3,
+			expectedDone: 0,
+		},
+		{
+			name:         "empty",
+			statuses:     map[string]int{},
+			expectedOpen: 0,
+			expectedDone: 0,
+		},
+		{
+			name:         "blocked counts as open",
+			statuses:     map[string]int{"blocked": 2, "done": 1},
+			expectedOpen: 2,
+			expectedDone: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			open, done := countOpenDone(tt.statuses)
+			if open != tt.expectedOpen {
+				t.Errorf("countOpenDone(%v) open = %d, want %d", tt.statuses, open, tt.expectedOpen)
+			}
+			if done != tt.expectedDone {
+				t.Errorf("countOpenDone(%v) done = %d, want %d", tt.statuses, done, tt.expectedDone)
+			}
+		})
+	}
+}
+
 // Helper function to clone entries for testing
 func cloneEntries(entries []*entry.Entry) []*entry.Entry {
 	clone := make([]*entry.Entry, len(entries))

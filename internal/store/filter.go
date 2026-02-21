@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/queelius/jot/internal/entry"
+	"github.com/queelius/jot/internal/fuzzy"
 )
 
 // Filter defines criteria for listing entries.
@@ -17,6 +18,7 @@ type Filter struct {
 	Since    time.Time
 	Until    time.Time
 	Limit    int
+	Fuzzy    bool
 }
 
 // Apply filters a slice of entries based on the filter criteria.
@@ -45,8 +47,14 @@ func (f *Filter) matches(e *entry.Entry) bool {
 	if f.Type != "" && !strings.EqualFold(e.Type, f.Type) {
 		return false
 	}
-	if f.Tag != "" && !e.HasTag(f.Tag) {
-		return false
+	if f.Tag != "" {
+		if f.Fuzzy {
+			if !hasTagFuzzy(e, f.Tag) {
+				return false
+			}
+		} else if !e.HasTag(f.Tag) {
+			return false
+		}
 	}
 	if f.Status != "" && !strings.EqualFold(e.Status, f.Status) {
 		return false
@@ -61,6 +69,16 @@ func (f *Filter) matches(e *entry.Entry) bool {
 		return false
 	}
 	return true
+}
+
+func hasTagFuzzy(e *entry.Entry, query string) bool {
+	maxDist := fuzzy.Threshold(query)
+	for _, tag := range e.Tags {
+		if fuzzy.Match(query, tag, maxDist) {
+			return true
+		}
+	}
+	return false
 }
 
 // ParseDuration parses a duration string like "7d" or "2w" into a time.Duration.

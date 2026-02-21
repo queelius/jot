@@ -13,6 +13,7 @@ var (
 	jsonFlag     bool
 	tableFlag    bool
 	markdownFlag bool
+	fuzzyFlag    bool
 
 	// Cached values
 	cachedRoot   string
@@ -45,6 +46,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&tableFlag, "table", false, "output as table")
 	rootCmd.PersistentFlags().BoolVar(&markdownFlag, "markdown", false, "output as markdown")
 	rootCmd.PersistentFlags().BoolVar(&markdownFlag, "md", false, "output as markdown (alias)")
+	rootCmd.PersistentFlags().BoolVar(&fuzzyFlag, "fuzzy", false, "use fuzzy matching for tags and search")
 }
 
 // Execute runs the root command.
@@ -100,6 +102,11 @@ func getStore() (*store.Store, error) {
 
 	cachedStore = store.New(root)
 	return cachedStore, nil
+}
+
+// getFuzzy returns whether fuzzy matching is enabled.
+func getFuzzy() bool {
+	return fuzzyFlag
 }
 
 // getOutputFormat returns the output format from flags or config.
