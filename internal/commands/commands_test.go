@@ -43,7 +43,17 @@ func TestParseTags(t *testing.T) {
 		{
 			name:     "only commas",
 			input:    ",,,",
-			expected: []string{},
+			expected: nil,
+		},
+		{
+			name:     "duplicates removed",
+			input:    "api,backend,api",
+			expected: []string{"api", "backend"},
+		},
+		{
+			name:     "duplicates with spaces",
+			input:    "api, api ,api",
+			expected: []string{"api"},
 		},
 	}
 

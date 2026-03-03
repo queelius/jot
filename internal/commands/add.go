@@ -116,10 +116,12 @@ func parseTags(s string) []string {
 		return nil
 	}
 	parts := strings.Split(s, ",")
-	tags := make([]string, 0, len(parts))
+	seen := make(map[string]bool)
+	var tags []string
 	for _, p := range parts {
 		tag := strings.TrimSpace(p)
-		if tag != "" {
+		if tag != "" && !seen[tag] {
+			seen[tag] = true
 			tags = append(tags, tag)
 		}
 	}

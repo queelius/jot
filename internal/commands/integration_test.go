@@ -819,3 +819,235 @@ func TestCommandGroups(t *testing.T) {
 		}
 	}
 }
+
+// TestStoreIntegration_TagAdd tests adding tags via mutator + store round-trip.
+func TestStoreIntegration_TagAdd(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	t.Run("add tags to untagged entry", func(t *testing.T) {
+		e := createTestEntry(t, s, "Untagged Entry", "idea", "", "", "", nil)
+
+		resolved, err := ResolveSlug(s, e.Slug)
+		if err != nil {
+			t.Fatalf("resolve failed: %v", err)
+		}
+
+		resolved.Tags = mutateAddTags([]string{"new-tag", "another"})(resolved.Tags)
+		if err := s.Update(resolved); err != nil {
+			t.Fatalf("update failed: %v", err)
+		}
+
+		updated, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(updated.Tags) != 2 {
+			t.Errorf("got %d tags, want 2: %v", len(updated.Tags), updated.Tags)
+		}
+	})
+
+	t.Run("add tags deduplicates against existing", func(t *testing.T) {
+		e := createTestEntry(t, s, "Pre-Tagged Entry", "task", "open", "", "", []string{"existing"})
+
+		resolved, err := ResolveSlug(s, e.Slug)
+		if err != nil {
+			t.Fatalf("resolve failed: %v", err)
+		}
+
+		resolved.Tags = mutateAddTags([]string{"new1", "existing", "new2"})(resolved.Tags)
+		if err := s.Update(resolved); err != nil {
+			t.Fatalf("update failed: %v", err)
+		}
+
+		updated, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(updated.Tags) != 3 {
+			t.Errorf("got %d tags, want 3: %v", len(updated.Tags), updated.Tags)
+		}
+		count := 0
+		for _, tag := range updated.Tags {
+			if tag == "existing" {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("existing tag appears %d times, want 1", count)
+		}
+	})
+}
+
+// TestStoreIntegration_TagRm tests removing tags via mutator + store round-trip.
+func TestStoreIntegration_TagRm(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	t.Run("remove specific tags", func(t *testing.T) {
+		e := createTestEntry(t, s, "Multi Tag Entry", "idea", "", "", "", []string{"keep", "remove-me", "also-keep"})
+
+		resolved, err := ResolveSlug(s, e.Slug)
+		if err != nil {
+			t.Fatalf("resolve failed: %v", err)
+		}
+
+		resolved.Tags = mutateRemoveTags([]string{"remove-me"})(resolved.Tags)
+		if err := s.Update(resolved); err != nil {
+			t.Fatalf("update failed: %v", err)
+		}
+
+		updated, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(updated.Tags) != 2 {
+			t.Errorf("got %d tags, want 2: %v", len(updated.Tags), updated.Tags)
+		}
+		for _, tag := range updated.Tags {
+			if tag == "remove-me" {
+				t.Error("removed tag still present")
+			}
+		}
+	})
+
+	t.Run("remove last tag leaves empty", func(t *testing.T) {
+		e := createTestEntry(t, s, "Single Tag Entry", "note", "", "", "", []string{"only-tag"})
+
+		resolved, err := ResolveSlug(s, e.Slug)
+		if err != nil {
+			t.Fatalf("resolve failed: %v", err)
+		}
+
+		resolved.Tags = mutateRemoveTags([]string{"only-tag"})(resolved.Tags)
+		if err := s.Update(resolved); err != nil {
+			t.Fatalf("update failed: %v", err)
+		}
+
+		updated, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(updated.Tags) != 0 {
+			t.Errorf("got %d tags, want 0: %v", len(updated.Tags), updated.Tags)
+		}
+	})
+}
+
+// TestStoreIntegration_TagSet tests replacing tags via mutator + store round-trip.
+func TestStoreIntegration_TagSet(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	t.Run("set replaces all tags", func(t *testing.T) {
+		e := createTestEntry(t, s, "Replace Tags Entry", "idea", "", "", "", []string{"old1", "old2"})
+
+		resolved, err := ResolveSlug(s, e.Slug)
+		if err != nil {
+			t.Fatalf("resolve failed: %v", err)
+		}
+
+		resolved.Tags = mutateSetTags([]string{"new1", "new2", "new3"})(resolved.Tags)
+		if err := s.Update(resolved); err != nil {
+			t.Fatalf("update failed: %v", err)
+		}
+
+		updated, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(updated.Tags) != 3 {
+			t.Errorf("got %d tags, want 3: %v", len(updated.Tags), updated.Tags)
+		}
+		for _, tag := range updated.Tags {
+			if tag == "old1" || tag == "old2" {
+				t.Errorf("old tag %q still present", tag)
+			}
+		}
+	})
+
+	t.Run("set with nil clears tags", func(t *testing.T) {
+		e := createTestEntry(t, s, "Clear Tags Entry", "task", "open", "", "", []string{"will-be-gone"})
+
+		resolved, err := ResolveSlug(s, e.Slug)
+		if err != nil {
+			t.Fatalf("resolve failed: %v", err)
+		}
+
+		resolved.Tags = mutateSetTags(nil)(resolved.Tags)
+		if err := s.Update(resolved); err != nil {
+			t.Fatalf("update failed: %v", err)
+		}
+
+		updated, err := s.Get(e.Slug)
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(updated.Tags) != 0 {
+			t.Errorf("got %d tags, want 0: %v", len(updated.Tags), updated.Tags)
+		}
+	})
+}
+
+// TestStoreIntegration_TagBatch tests batch tag operations on multiple entries.
+func TestStoreIntegration_TagBatch(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	e1 := createTestEntry(t, s, "Batch One", "idea", "", "", "", []string{"project-a"})
+	e2 := createTestEntry(t, s, "Batch Two", "task", "open", "", "", []string{"project-a"})
+	e3 := createTestEntry(t, s, "Batch Three", "note", "", "", "", nil)
+
+	applyMutator := func(t *testing.T, slug string, mutate tagMutator) {
+		t.Helper()
+		resolved, err := ResolveSlug(s, slug)
+		if err != nil {
+			t.Fatalf("resolve %s failed: %v", slug, err)
+		}
+		resolved.Tags = mutate(resolved.Tags)
+		if err := s.Update(resolved); err != nil {
+			t.Fatalf("update %s failed: %v", slug, err)
+		}
+	}
+
+	t.Run("batch add to multiple entries", func(t *testing.T) {
+		slugs := []string{e1.Slug, e2.Slug, e3.Slug}
+		add := mutateAddTags([]string{"batch-tag"})
+		for _, slug := range slugs {
+			applyMutator(t, slug, add)
+		}
+
+		for _, slug := range slugs {
+			updated, err := s.Get(slug)
+			if err != nil {
+				t.Fatalf("get %s failed: %v", slug, err)
+			}
+			found := false
+			for _, tag := range updated.Tags {
+				if tag == "batch-tag" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("entry %s missing batch-tag: %v", slug, updated.Tags)
+			}
+		}
+	})
+
+	t.Run("batch remove from multiple entries", func(t *testing.T) {
+		slugs := []string{e1.Slug, e2.Slug}
+		rm := mutateRemoveTags([]string{"project-a"})
+		for _, slug := range slugs {
+			applyMutator(t, slug, rm)
+		}
+
+		for _, slug := range slugs {
+			updated, err := s.Get(slug)
+			if err != nil {
+				t.Fatalf("get %s failed: %v", slug, err)
+			}
+			for _, tag := range updated.Tags {
+				if tag == "project-a" {
+					t.Errorf("entry %s still has project-a: %v", slug, updated.Tags)
+				}
+			}
+		}
+	})
+}
