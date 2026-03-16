@@ -820,168 +820,65 @@ func TestCommandGroups(t *testing.T) {
 	}
 }
 
-// TestStoreIntegration_TagAdd tests adding tags via mutator + store round-trip.
-func TestStoreIntegration_TagAdd(t *testing.T) {
+// TestStoreIntegration_TagRoundTrip verifies that mutated tags persist correctly
+// through the store. Detailed mutation semantics are covered by unit tests in tag_test.go.
+func TestStoreIntegration_TagRoundTrip(t *testing.T) {
 	s, _ := setupTestJournal(t)
 
-	t.Run("add tags to untagged entry", func(t *testing.T) {
-		e := createTestEntry(t, s, "Untagged Entry", "idea", "", "", "", nil)
-
+	t.Run("add persists", func(t *testing.T) {
+		e := createTestEntry(t, s, "Tag Add Entry", "idea", "", "", "", []string{"existing"})
 		resolved, err := ResolveSlug(s, e.Slug)
 		if err != nil {
 			t.Fatalf("resolve failed: %v", err)
 		}
-
-		resolved.Tags = mutateAddTags([]string{"new-tag", "another"})(resolved.Tags)
+		resolved.Tags = mutateAddTags([]string{"new1", "existing"})(resolved.Tags)
 		if err := s.Update(resolved); err != nil {
 			t.Fatalf("update failed: %v", err)
 		}
-
 		updated, err := s.Get(e.Slug)
 		if err != nil {
 			t.Fatalf("get failed: %v", err)
 		}
 		if len(updated.Tags) != 2 {
-			t.Errorf("got %d tags, want 2: %v", len(updated.Tags), updated.Tags)
+			t.Errorf("got tags %v, want [existing new1]", updated.Tags)
 		}
 	})
 
-	t.Run("add tags deduplicates against existing", func(t *testing.T) {
-		e := createTestEntry(t, s, "Pre-Tagged Entry", "task", "open", "", "", []string{"existing"})
-
+	t.Run("rm persists", func(t *testing.T) {
+		e := createTestEntry(t, s, "Tag Rm Entry", "idea", "", "", "", []string{"keep", "remove"})
 		resolved, err := ResolveSlug(s, e.Slug)
 		if err != nil {
 			t.Fatalf("resolve failed: %v", err)
 		}
-
-		resolved.Tags = mutateAddTags([]string{"new1", "existing", "new2"})(resolved.Tags)
+		resolved.Tags = mutateRemoveTags([]string{"remove"})(resolved.Tags)
 		if err := s.Update(resolved); err != nil {
 			t.Fatalf("update failed: %v", err)
 		}
-
 		updated, err := s.Get(e.Slug)
 		if err != nil {
 			t.Fatalf("get failed: %v", err)
 		}
-		if len(updated.Tags) != 3 {
-			t.Errorf("got %d tags, want 3: %v", len(updated.Tags), updated.Tags)
-		}
-		count := 0
-		for _, tag := range updated.Tags {
-			if tag == "existing" {
-				count++
-			}
-		}
-		if count != 1 {
-			t.Errorf("existing tag appears %d times, want 1", count)
+		if len(updated.Tags) != 1 || updated.Tags[0] != "keep" {
+			t.Errorf("got tags %v, want [keep]", updated.Tags)
 		}
 	})
-}
 
-// TestStoreIntegration_TagRm tests removing tags via mutator + store round-trip.
-func TestStoreIntegration_TagRm(t *testing.T) {
-	s, _ := setupTestJournal(t)
-
-	t.Run("remove specific tags", func(t *testing.T) {
-		e := createTestEntry(t, s, "Multi Tag Entry", "idea", "", "", "", []string{"keep", "remove-me", "also-keep"})
-
+	t.Run("set persists", func(t *testing.T) {
+		e := createTestEntry(t, s, "Tag Set Entry", "idea", "", "", "", []string{"old"})
 		resolved, err := ResolveSlug(s, e.Slug)
 		if err != nil {
 			t.Fatalf("resolve failed: %v", err)
 		}
-
-		resolved.Tags = mutateRemoveTags([]string{"remove-me"})(resolved.Tags)
+		resolved.Tags = mutateSetTags([]string{"new1", "new2"})(resolved.Tags)
 		if err := s.Update(resolved); err != nil {
 			t.Fatalf("update failed: %v", err)
 		}
-
 		updated, err := s.Get(e.Slug)
 		if err != nil {
 			t.Fatalf("get failed: %v", err)
 		}
 		if len(updated.Tags) != 2 {
-			t.Errorf("got %d tags, want 2: %v", len(updated.Tags), updated.Tags)
-		}
-		for _, tag := range updated.Tags {
-			if tag == "remove-me" {
-				t.Error("removed tag still present")
-			}
-		}
-	})
-
-	t.Run("remove last tag leaves empty", func(t *testing.T) {
-		e := createTestEntry(t, s, "Single Tag Entry", "note", "", "", "", []string{"only-tag"})
-
-		resolved, err := ResolveSlug(s, e.Slug)
-		if err != nil {
-			t.Fatalf("resolve failed: %v", err)
-		}
-
-		resolved.Tags = mutateRemoveTags([]string{"only-tag"})(resolved.Tags)
-		if err := s.Update(resolved); err != nil {
-			t.Fatalf("update failed: %v", err)
-		}
-
-		updated, err := s.Get(e.Slug)
-		if err != nil {
-			t.Fatalf("get failed: %v", err)
-		}
-		if len(updated.Tags) != 0 {
-			t.Errorf("got %d tags, want 0: %v", len(updated.Tags), updated.Tags)
-		}
-	})
-}
-
-// TestStoreIntegration_TagSet tests replacing tags via mutator + store round-trip.
-func TestStoreIntegration_TagSet(t *testing.T) {
-	s, _ := setupTestJournal(t)
-
-	t.Run("set replaces all tags", func(t *testing.T) {
-		e := createTestEntry(t, s, "Replace Tags Entry", "idea", "", "", "", []string{"old1", "old2"})
-
-		resolved, err := ResolveSlug(s, e.Slug)
-		if err != nil {
-			t.Fatalf("resolve failed: %v", err)
-		}
-
-		resolved.Tags = mutateSetTags([]string{"new1", "new2", "new3"})(resolved.Tags)
-		if err := s.Update(resolved); err != nil {
-			t.Fatalf("update failed: %v", err)
-		}
-
-		updated, err := s.Get(e.Slug)
-		if err != nil {
-			t.Fatalf("get failed: %v", err)
-		}
-		if len(updated.Tags) != 3 {
-			t.Errorf("got %d tags, want 3: %v", len(updated.Tags), updated.Tags)
-		}
-		for _, tag := range updated.Tags {
-			if tag == "old1" || tag == "old2" {
-				t.Errorf("old tag %q still present", tag)
-			}
-		}
-	})
-
-	t.Run("set with nil clears tags", func(t *testing.T) {
-		e := createTestEntry(t, s, "Clear Tags Entry", "task", "open", "", "", []string{"will-be-gone"})
-
-		resolved, err := ResolveSlug(s, e.Slug)
-		if err != nil {
-			t.Fatalf("resolve failed: %v", err)
-		}
-
-		resolved.Tags = mutateSetTags(nil)(resolved.Tags)
-		if err := s.Update(resolved); err != nil {
-			t.Fatalf("update failed: %v", err)
-		}
-
-		updated, err := s.Get(e.Slug)
-		if err != nil {
-			t.Fatalf("get failed: %v", err)
-		}
-		if len(updated.Tags) != 0 {
-			t.Errorf("got %d tags, want 0: %v", len(updated.Tags), updated.Tags)
+			t.Errorf("got tags %v, want [new1 new2]", updated.Tags)
 		}
 	})
 }
@@ -1050,4 +947,59 @@ func TestStoreIntegration_TagBatch(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestStoreIntegration_Stats tests stats computation with real entries through the store.
+func TestStoreIntegration_Stats(t *testing.T) {
+	s, _ := setupTestJournal(t)
+
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	// Create diverse entries
+	createTestEntry(t, s, "Open Task", "task", "open", "high", today.Add(-2*24*time.Hour).Format("2006-01-02"), []string{"api"})
+	createTestEntry(t, s, "Done Task", "task", "done", "low", "", []string{"api", "backend"})
+	createTestEntry(t, s, "Blocked Task", "task", "blocked", "critical", "", []string{"api"})
+	createTestEntry(t, s, "Open Idea", "idea", "open", "", "", []string{"frontend"})
+	createTestEntry(t, s, "Note", "note", "", "", "", nil)
+
+	sections := map[string]bool{
+		"summary": true,
+		"overdue": true,
+		"blocked": true,
+	}
+
+	result, err := s.Stats(nil, sections, 30)
+	if err != nil {
+		t.Fatalf("Stats() failed: %v", err)
+	}
+
+	// Verify summary
+	if result.Summary == nil {
+		t.Fatal("summary should be populated")
+	}
+	if result.Summary.Total != 5 {
+		t.Errorf("total = %d, want 5", result.Summary.Total)
+	}
+	if result.Summary.ByType["task"] != 3 {
+		t.Errorf("by_type[task] = %d, want 3", result.Summary.ByType["task"])
+	}
+
+	// Verify overdue (Open Task has past due date)
+	if len(result.Overdue) != 1 {
+		t.Errorf("overdue count = %d, want 1", len(result.Overdue))
+	}
+
+	// Verify blocked
+	if len(result.Blocked) != 1 {
+		t.Errorf("blocked count = %d, want 1", len(result.Blocked))
+	}
+
+	// Verify unrequested sections are nil
+	if result.Health != nil {
+		t.Error("health should be nil when not requested")
+	}
+	if result.Recent != nil {
+		t.Error("recent should be nil when not requested")
+	}
 }
