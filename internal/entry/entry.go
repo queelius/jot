@@ -220,29 +220,31 @@ func (e *Entry) ToJSONPretty() ([]byte, error) {
 
 // EntrySummary is a compact representation for list output.
 type EntrySummary struct {
-	Slug     string   `json:"slug"`
-	Title    string   `json:"title"`
-	Type     string   `json:"type,omitempty"`
-	Status   string   `json:"status,omitempty"`
-	Priority string   `json:"priority,omitempty"`
-	Due      string   `json:"due,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
-	Created  string   `json:"created"`
-	Modified string   `json:"modified"`
+	Slug      string   `json:"slug"`
+	Title     string   `json:"title"`
+	Type      string   `json:"type,omitempty"`
+	Status    string   `json:"status,omitempty"`
+	Priority  string   `json:"priority,omitempty"`
+	Due       string   `json:"due,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
+	Created   string   `json:"created"`
+	Modified  string   `json:"modified"`
+	BlockedBy string   `json:"blocked_by,omitempty"`
 }
 
 // Summary returns a compact summary for list output.
 func (e *Entry) Summary() EntrySummary {
 	return EntrySummary{
-		Slug:     e.Slug,
-		Title:    e.Title,
-		Type:     e.Type,
-		Status:   e.Status,
-		Priority: e.Priority,
-		Due:      e.Due,
-		Tags:     e.Tags,
-		Created:  e.Created.Format(time.RFC3339),
-		Modified: e.Modified.Format(time.RFC3339),
+		Slug:      e.Slug,
+		Title:     e.Title,
+		Type:      e.Type,
+		Status:    e.Status,
+		Priority:  e.Priority,
+		Due:       e.Due,
+		Tags:      e.Tags,
+		Created:   e.Created.Format(time.RFC3339),
+		Modified:  e.Modified.Format(time.RFC3339),
+		BlockedBy: e.BlockedBy,
 	}
 }
 
