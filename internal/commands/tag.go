@@ -89,45 +89,46 @@ func init() {
 	rootCmd.AddCommand(tagCmd)
 }
 
-// getSlugInputs returns slugs from positional args or stdin.
-func getSlugInputs(args []string, useStdin bool) ([]string, error) {
+// tagInput holds the parsed positional arguments for a tag subcommand.
+type tagInput struct {
+	slugs []string
+	tags  []string
+}
+
+// parseTagInput parses positional args and stdin into a unified tagInput.
+// Without --stdin: args = [slug, tags?]  → slugs from args[0], tags from args[1]
+// With    --stdin: args = [tags?]        → slugs from stdin,   tags from args[0]
+func parseTagInput(args []string, useStdin bool) (*tagInput, error) {
+	input := &tagInput{}
+
 	if useStdin {
+		if len(args) >= 1 {
+			input.tags = parseTags(args[0])
+		}
 		scanner := bufio.NewScanner(os.Stdin)
-		var slugs []string
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
 			if line != "" {
-				slugs = append(slugs, line)
+				input.slugs = append(input.slugs, line)
 			}
 		}
 		if err := scanner.Err(); err != nil {
 			return nil, fmt.Errorf("reading stdin: %w", err)
 		}
-		if len(slugs) == 0 {
+		if len(input.slugs) == 0 {
 			return nil, fmt.Errorf("no slugs provided on stdin")
 		}
-		return slugs, nil
-	}
-	if len(args) < 1 {
-		return nil, fmt.Errorf("slug required")
-	}
-	return []string{args[0]}, nil
-}
-
-// getTagsArg extracts the tags argument, accounting for --stdin shifting args.
-func getTagsArg(args []string, useStdin bool) string {
-	if useStdin {
-		// With --stdin, the first positional arg is the tags
-		if len(args) >= 1 {
-			return args[0]
+	} else {
+		if len(args) < 1 {
+			return nil, fmt.Errorf("slug required")
 		}
-		return ""
+		input.slugs = []string{args[0]}
+		if len(args) >= 2 {
+			input.tags = parseTags(args[1])
+		}
 	}
-	// Without --stdin, first arg is slug, second is tags
-	if len(args) >= 2 {
-		return args[1]
-	}
-	return ""
+
+	return input, nil
 }
 
 // tagMutator transforms an entry's tag list. It receives the current tags
@@ -136,22 +137,20 @@ type tagMutator func(current []string) []string
 
 // runTagOp is the shared implementation for tag add/rm/set.
 // It handles store access, slug resolution, update, and output.
-func runTagOp(args []string, mutate tagMutator) error {
+// In batch mode, errors are collected and reported after processing all slugs.
+func runTagOp(input *tagInput, mutate tagMutator) error {
 	s, err := getStore()
 	if err != nil {
 		return err
 	}
 
-	slugs, err := getSlugInputs(args, tagStdin)
-	if err != nil {
-		return err
-	}
-
+	var errs []string
 	count := 0
-	for _, slug := range slugs {
+	for _, slug := range input.slugs {
 		e, err := ResolveSlug(s, slug)
 		if err != nil {
-			return fmt.Errorf("%s: %w", slug, err)
+			errs = append(errs, fmt.Sprintf("%s: %v", slug, err))
+			continue
 		}
 
 		oldTags := make([]string, len(e.Tags))
@@ -160,7 +159,8 @@ func runTagOp(args []string, mutate tagMutator) error {
 		e.Tags = mutate(e.Tags)
 
 		if err := s.Update(e); err != nil {
-			return fmt.Errorf("%s: %w", slug, err)
+			errs = append(errs, fmt.Sprintf("%s: %v", slug, err))
+			continue
 		}
 
 		if jsonFlag {
@@ -175,8 +175,12 @@ func runTagOp(args []string, mutate tagMutator) error {
 		count++
 	}
 
-	if len(slugs) > 1 && !jsonFlag {
+	if len(input.slugs) > 1 && !jsonFlag {
 		fmt.Printf("Updated %d entries.\n", count)
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("failed on %d entries:\n  %s", len(errs), strings.Join(errs, "\n  "))
 	}
 	return nil
 }
@@ -184,11 +188,12 @@ func runTagOp(args []string, mutate tagMutator) error {
 // mutateAddTags returns a mutator that appends tags, deduplicating against existing ones.
 func mutateAddTags(newTags []string) tagMutator {
 	return func(current []string) []string {
-		seen := make(map[string]bool, len(current))
+		seen := make(map[string]bool, len(current)+len(newTags))
+		result := make([]string, len(current), len(current)+len(newTags))
+		copy(result, current)
 		for _, t := range current {
 			seen[t] = true
 		}
-		result := current
 		for _, t := range newTags {
 			if !seen[t] {
 				result = append(result, t)
@@ -224,22 +229,31 @@ func mutateSetTags(newTags []string) tagMutator {
 }
 
 func runTagAdd(cmd *cobra.Command, args []string) error {
-	tags := parseTags(getTagsArg(args, tagStdin))
-	if len(tags) == 0 {
+	input, err := parseTagInput(args, tagStdin)
+	if err != nil {
+		return err
+	}
+	if len(input.tags) == 0 {
 		return fmt.Errorf("at least one tag required")
 	}
-	return runTagOp(args, mutateAddTags(tags))
+	return runTagOp(input, mutateAddTags(input.tags))
 }
 
 func runTagRm(cmd *cobra.Command, args []string) error {
-	tags := parseTags(getTagsArg(args, tagStdin))
-	if len(tags) == 0 {
+	input, err := parseTagInput(args, tagStdin)
+	if err != nil {
+		return err
+	}
+	if len(input.tags) == 0 {
 		return fmt.Errorf("at least one tag required")
 	}
-	return runTagOp(args, mutateRemoveTags(tags))
+	return runTagOp(input, mutateRemoveTags(input.tags))
 }
 
 func runTagSet(cmd *cobra.Command, args []string) error {
-	tags := parseTags(getTagsArg(args, tagStdin))
-	return runTagOp(args, mutateSetTags(tags))
+	input, err := parseTagInput(args, tagStdin)
+	if err != nil {
+		return err
+	}
+	return runTagOp(input, mutateSetTags(input.tags))
 }

@@ -5,46 +5,40 @@ import (
 	"testing"
 )
 
-func TestGetTagsArg(t *testing.T) {
+func TestParseTagInput(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
-		useStdin bool
-		want     string
+		name      string
+		args      []string
+		useStdin  bool
+		wantSlugs []string
+		wantTags  []string
+		wantErr   bool
 	}{
-		{"no stdin, slug and tags", []string{"my-slug", "api,backend"}, false, "api,backend"},
-		{"no stdin, slug only", []string{"my-slug"}, false, ""},
-		{"stdin, tags as first arg", []string{"api,backend"}, true, "api,backend"},
-		{"stdin, no args", []string{}, true, ""},
+		{"slug and tags", []string{"my-slug", "api,backend"}, false, []string{"my-slug"}, []string{"api", "backend"}, false},
+		{"slug only", []string{"my-slug"}, false, []string{"my-slug"}, nil, false},
+		{"no args", []string{}, false, nil, nil, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getTagsArg(tt.args, tt.useStdin)
-			if got != tt.want {
-				t.Errorf("getTagsArg(%v, %v) = %q, want %q", tt.args, tt.useStdin, got, tt.want)
+			input, err := parseTagInput(tt.args, tt.useStdin)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(input.slugs, tt.wantSlugs) {
+				t.Errorf("slugs = %v, want %v", input.slugs, tt.wantSlugs)
+			}
+			if !reflect.DeepEqual(input.tags, tt.wantTags) {
+				t.Errorf("tags = %v, want %v", input.tags, tt.wantTags)
 			}
 		})
 	}
-}
-
-func TestGetSlugInputs_Args(t *testing.T) {
-	t.Run("from positional arg", func(t *testing.T) {
-		slugs, err := getSlugInputs([]string{"my-slug", "tags"}, false)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(slugs) != 1 || slugs[0] != "my-slug" {
-			t.Errorf("got %v, want [my-slug]", slugs)
-		}
-	})
-
-	t.Run("no args, no stdin", func(t *testing.T) {
-		_, err := getSlugInputs([]string{}, false)
-		if err == nil {
-			t.Error("expected error for no args")
-		}
-	})
 }
 
 func TestMutateAddTags(t *testing.T) {
@@ -68,6 +62,24 @@ func TestMutateAddTags(t *testing.T) {
 				t.Errorf("mutateAddTags(%v)(%v) = %v, want %v", tt.add, tt.current, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMutateAddTags_NoAliasing(t *testing.T) {
+	original := []string{"a", "b", "c"}
+	backup := make([]string, len(original))
+	copy(backup, original)
+
+	mutate := mutateAddTags([]string{"d"})
+	result := mutate(original)
+
+	// Verify original slice was not modified
+	if !reflect.DeepEqual(original, backup) {
+		t.Errorf("mutateAddTags modified input slice: got %v, want %v", original, backup)
+	}
+	// Verify result has the new tag
+	if len(result) != 4 || result[3] != "d" {
+		t.Errorf("result = %v, want [a b c d]", result)
 	}
 }
 
